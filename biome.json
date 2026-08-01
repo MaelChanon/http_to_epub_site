@@ -1,0 +1,75 @@
+{
+	"$schema": "https://biomejs.dev/schemas/2.4.13/schema.json",
+	"vcs": {
+		"enabled": false,
+		"clientKind": "git",
+		"useIgnoreFile": false
+	},
+	"files": {
+		"ignoreUnknown": false,
+		"includes": [
+			"api/src/**/*.ts",
+			"web/src/**/*.ts",
+			"web/src/**/*.tsx",
+			"!web/src/routeTree.gen.ts"
+		]
+	},
+	"formatter": {
+		"enabled": true,
+		"indentStyle": "tab"
+	},
+	"linter": {
+		"enabled": true,
+		"rules": {
+			"correctness": {
+				"noInvalidBuiltinInstantiation": "error",
+				"noUnusedImports": "error",
+				"noUnusedPrivateClassMembers": "error",
+				"noUnusedVariables": {
+					"level": "error",
+					"options": {
+						"ignoreRestSiblings": true
+					}
+				}
+			},
+			"style": {
+				"noDefaultExport": "error",
+				"noNegationElse": "error",
+				"useArrayLiterals": "error",
+				"useBlockStatements": "error",
+				"useCollapsedElseIf": "error",
+				"useImportType": "error"
+			},
+			"suspicious": {
+				"noConsole": "error",
+				"noEmptyBlockStatements": "error",
+				"useAwait": "error"
+			}
+		}
+	},
+	"overrides": [
+		{
+			"includes": ["web/src/**"],
+			"linter": {
+				"rules": {
+					"suspicious": {
+						"noConsole": "off"
+					}
+				}
+			}
+		}
+	],
+	"javascript": {
+		"formatter": {
+			"quoteStyle": "double"
+		}
+	},
+	"assist": {
+		"enabled": true,
+		"actions": {
+			"source": {
+				"organizeImports": "on"
+			}
+		}
+	}
+}

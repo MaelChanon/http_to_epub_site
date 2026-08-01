@@ -1,0 +1,20 @@
+{
+	"name": "http_to_epub_site",
+	"version": "1.0.0",
+	"private": true,
+	"workspaces": [
+		"api",
+		"web"
+	],
+	"scripts": {
+		"check": "biome check",
+		"format": "biome check --write",
+		"dev:api": "npm run dev -w @workspace/api",
+		"dev:web": "npm run dev -w @workspace/web",
+		"prepare": "husky"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.4.13",
+		"husky": "^9.1.7"
+	}
+}
