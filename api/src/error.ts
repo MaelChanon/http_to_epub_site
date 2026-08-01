@@ -39,18 +39,24 @@ export const toHttpError = (
 	Effect.logError(err.internalMessage).pipe(
 		Effect.andThen(
 			Match.value(err).pipe(
-				Match.tag("UserNotFound", "S3ObjectNotFound", () =>
-					Effect.fail(
-						new NotFoundError({
-							message: "The requested resource does not exist",
-						}),
-					),
+				Match.tag(
+					"UserNotFound",
+					"S3ObjectNotFound",
+					"MangaNotFoundInProvider",
+					() =>
+						Effect.fail(
+							new NotFoundError({
+								message: "The requested resource does not exist",
+							}),
+						),
 				),
 				Match.tag(
 					"SQLError",
 					"EncryptionFailed",
 					"SessionStoreError",
 					"S3Error",
+					"MangaProviderRequestFailed",
+					"MangaProviderResponseInvalid",
 					() =>
 						Effect.fail(
 							new InternalServerError({ message: "Internal server error" }),

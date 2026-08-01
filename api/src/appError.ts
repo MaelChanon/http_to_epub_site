@@ -1,4 +1,9 @@
 import type { EncryptionFailed } from "./encrypt/encryptService.js";
+import type {
+	MangaNotFoundInProvider,
+	MangaProviderRequestFailed,
+	MangaProviderResponseInvalid,
+} from "./manga/mangaProvider.service.js";
 import type { S3Error, S3ObjectNotFound } from "./s3/s3.service.js";
 import type { SQLError } from "./schema/utils.js";
 import type {
@@ -16,4 +21,7 @@ export type DomainError =
 	| MissingSession
 	| SessionStoreError
 	| S3ObjectNotFound
-	| S3Error;
+	| S3Error
+	| MangaNotFoundInProvider
+	| MangaProviderRequestFailed
+	| MangaProviderResponseInvalid;

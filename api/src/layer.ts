@@ -3,6 +3,7 @@ import { AuthService } from "./auth/auth.service.js";
 import { appConfig } from "./config.js";
 import { DBLayer } from "./db.js";
 import { EncryptService } from "./encrypt/encryptService.js";
+import { MangaProviderService } from "./manga/mangaProvider.service.js";
 import { RedisClientLive } from "./redis.js";
 import { S3Service } from "./s3/s3.service.js";
 import { SessionService } from "./session/session.service.js";
@@ -19,6 +20,7 @@ const selectLayers = Effect.gen(function* () {
 		UserService.Default,
 		SessionService.Default,
 		S3Service.Default,
+		MangaProviderService.Default,
 	);
 });
 

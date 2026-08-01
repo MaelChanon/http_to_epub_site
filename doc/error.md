@@ -45,3 +45,5 @@ very end.
 - `EncryptionFailed` (`encrypt/encryptService.ts`)
 - `InvalidSession`, `MissingSession` (`session/session.service.ts`)
 - `S3ObjectNotFound`, `S3Error` (`s3/s3.service.ts`)
+- `MangaNotFoundInProvider`, `MangaProviderRequestFailed`,
+  `MangaProviderResponseInvalid` (`manga/mangaProvider.service.ts`)
