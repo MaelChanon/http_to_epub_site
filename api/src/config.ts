@@ -12,6 +12,12 @@ class AppConfig {
 		readonly sessionTtlSeconds: number,
 		readonly cookieSecure: boolean,
 		readonly redisUrl: string,
+		readonly s3Endpoint: string,
+		readonly s3Region: string,
+		readonly s3Bucket: string,
+		readonly s3AccessKeyId: string,
+		readonly s3SecretAccessKey: string,
+		readonly s3ForcePathStyle: boolean,
 	) {}
 }
 export const appConfig = Config.map(
@@ -34,6 +40,14 @@ export const appConfig = Config.map(
 		Config.string("REDIS_URL").pipe(
 			Config.withDefault("redis://localhost:6379"),
 		),
+		Config.string("S3_ENDPOINT").pipe(
+			Config.withDefault("http://localhost:3900"),
+		),
+		Config.string("S3_REGION").pipe(Config.withDefault("garage")),
+		Config.string("S3_BUCKET").pipe(Config.withDefault("manga")),
+		Config.string("S3_ACCESS_KEY_ID").pipe(Config.withDefault("")),
+		Config.string("S3_SECRET_ACCESS_KEY").pipe(Config.withDefault("")),
+		Config.boolean("S3_FORCE_PATH_STYLE").pipe(Config.withDefault(true)),
 	]),
 	([
 		host,
@@ -44,6 +58,12 @@ export const appConfig = Config.map(
 		sessionTtlSeconds,
 		cookieSecure,
 		redisUrl,
+		s3Endpoint,
+		s3Region,
+		s3Bucket,
+		s3AccessKeyId,
+		s3SecretAccessKey,
+		s3ForcePathStyle,
 	]) =>
 		new AppConfig(
 			host,
@@ -54,5 +74,11 @@ export const appConfig = Config.map(
 			sessionTtlSeconds,
 			cookieSecure,
 			redisUrl,
+			s3Endpoint,
+			s3Region,
+			s3Bucket,
+			s3AccessKeyId,
+			s3SecretAccessKey,
+			s3ForcePathStyle,
 		),
 );

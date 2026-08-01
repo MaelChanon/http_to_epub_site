@@ -44,3 +44,4 @@ very end.
 - `SQLError` (`schema/utils.ts`)
 - `EncryptionFailed` (`encrypt/encryptService.ts`)
 - `InvalidSession`, `MissingSession` (`session/session.service.ts`)
+- `S3ObjectNotFound`, `S3Error` (`s3/s3.service.ts`)

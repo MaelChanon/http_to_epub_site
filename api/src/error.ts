@@ -39,17 +39,22 @@ export const toHttpError = (
 	Effect.logError(err.internalMessage).pipe(
 		Effect.andThen(
 			Match.value(err).pipe(
-				Match.tag("UserNotFound", () =>
+				Match.tag("UserNotFound", "S3ObjectNotFound", () =>
 					Effect.fail(
 						new NotFoundError({
 							message: "The requested resource does not exist",
 						}),
 					),
 				),
-				Match.tag("SQLError", "EncryptionFailed", "SessionStoreError", () =>
-					Effect.fail(
-						new InternalServerError({ message: "Internal server error" }),
-					),
+				Match.tag(
+					"SQLError",
+					"EncryptionFailed",
+					"SessionStoreError",
+					"S3Error",
+					() =>
+						Effect.fail(
+							new InternalServerError({ message: "Internal server error" }),
+						),
 				),
 				Match.tag("InvalidSession", "MissingSession", () =>
 					Effect.fail(new UnauthorizedError({ message: "Invalid session" })),

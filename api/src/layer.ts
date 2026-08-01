@@ -4,6 +4,7 @@ import { appConfig } from "./config.js";
 import { DBLayer } from "./db.js";
 import { EncryptService } from "./encrypt/encryptService.js";
 import { RedisClientLive } from "./redis.js";
+import { S3Service } from "./s3/s3.service.js";
 import { SessionService } from "./session/session.service.js";
 import { UserService } from "./user/user.service.js";
 
@@ -17,6 +18,7 @@ const selectLayers = Effect.gen(function* () {
 		EncryptService.Default,
 		UserService.Default,
 		SessionService.Default,
+		S3Service.Default,
 	);
 });
 

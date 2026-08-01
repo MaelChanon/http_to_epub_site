@@ -1,4 +1,5 @@
 import type { EncryptionFailed } from "./encrypt/encryptService.js";
+import type { S3Error, S3ObjectNotFound } from "./s3/s3.service.js";
 import type { SQLError } from "./schema/utils.js";
 import type {
 	InvalidSession,
@@ -13,4 +14,6 @@ export type DomainError =
 	| EncryptionFailed
 	| InvalidSession
 	| MissingSession
-	| SessionStoreError;
+	| SessionStoreError
+	| S3ObjectNotFound
+	| S3Error;
