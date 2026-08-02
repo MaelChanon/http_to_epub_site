@@ -4,9 +4,9 @@ import { DB, DBLayer } from "../../../drizzle/db.js";
 import { providerMangas } from "../../../drizzle/schema/providers.js";
 import { toSQLError } from "../../../drizzle/schema/utils.js";
 import {
-	MangaNativeService,
+	MangaFetcherService,
 	type MangaProvider,
-} from "../mangaNative/mangaNative.service.js";
+} from "../mangaFetcher/mangaFetcher.service.js";
 import { ProviderRepository } from "./provider.repository.js";
 import type { MangaProviderName } from "./scanProvider.domain.js";
 import { ProviderMangaSummary } from "./scanProvider.domain.js";
@@ -16,13 +16,13 @@ export class ProviderCatalogService extends Effect.Service<ProviderCatalogServic
 	{
 		effect: Effect.gen(function* () {
 			const db = yield* DB;
-			const mangaNative = yield* MangaNativeService;
+			const mangaFetcher = yield* MangaFetcherService;
 			const providerRepo = yield* ProviderRepository;
 
 			function refreshCatalog(provider: MangaProvider) {
 				return Effect.gen(function* () {
 					const providerId = yield* providerRepo.ensureProvider(provider);
-					const entries = yield* mangaNative.getProviderCatalog(provider);
+					const entries = yield* mangaFetcher.getProviderCatalog(provider);
 
 					if (entries.length === 0) {
 						return;
@@ -85,7 +85,7 @@ export class ProviderCatalogService extends Effect.Service<ProviderCatalogServic
 		}),
 		dependencies: [
 			DBLayer,
-			MangaNativeService.Default,
+			MangaFetcherService.Default,
 			ProviderRepository.Default,
 		],
 	},

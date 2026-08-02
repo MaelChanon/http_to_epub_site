@@ -1,6 +1,6 @@
-# manga-native (Neon binding)
+# manga-fetcher (Neon binding)
 
-`native/manga-native/` is a native Node addon, built with
+`manga-fetcher/` is a native Node addon, built with
 [Neon](https://neon-bindings.com/) and scaffolded/managed with
 `@neon-rs/cli`. It reuses the scraping logic already written in the
 `http_to_epub` Rust CLI (a sibling repo, see [Sibling repo dependency](#sibling-repo-dependency)
@@ -15,7 +15,7 @@ import {
   type MangaChapter,
   type MangaCatalogEntry,
   type MangaProvider,
-} from "manga-native";
+} from "manga-fetcher";
 
 type MangaProvider = "SUSHISCAN" | "MANGA_ORIGINS";
 
@@ -51,7 +51,7 @@ the URL.
   ESM entry points, standard Neon library pattern). `load.cts` just
   `require("../index.node")`; `index.cts` declares types for the untyped
   native export and re-exports typed `getMangaChapters`/`getProviderCatalog`.
-- `Cargo.toml` — depends on `htpp_to_epub` via `path = "../../http_to_epub"`,
+- `Cargo.toml` — depends on `htpp_to_epub` via `path = "../http_to_epub"`,
   and on `neon` with the `tokio` and `serde` features (see below).
 
 ## Why a dedicated thread + a one-shot channel
@@ -76,8 +76,8 @@ follow the exact same shape for `get_provider_catalog`.
 
 `http_to_epub/` (the Rust CLI, cloned as a sibling directory of this repo) is
 **not** tracked by this repo's git history and has its own separate git repo.
-Building `manga-native` requires it to be present on disk at
-`../../http_to_epub` relative to `native/manga-native/`.
+Building `manga-fetcher` requires it to be present on disk at
+`../http_to_epub` relative to `manga-fetcher/`.
 
 It originally only built a binary (`src/main.rs`, no library target), which
 can't be depended on via `path =`. A minimal `http_to_epub/src/lib.rs` was
@@ -88,7 +88,7 @@ persist there.
 ## Building
 
 ```bash
-cd native/manga-native
+cd manga-fetcher
 npm install
 npm run build   # tsc (compiles src/*.cts,*.mts to lib/) + cargo build --release + `neon dist` (copies the built cdylib to ./index.node)
 ```
@@ -101,9 +101,9 @@ and `cargo.log` are gitignored and must be rebuilt per machine/environment.
 
 ## Using it from the API
 
-`native/manga-native` is an npm workspace (root `package.json`), depended on
-by `api` as `"manga-native": "*"`. It's wrapped by `api/src/manga/mangaNative.service.ts`
-(`MangaNativeService`), which turns every `Promise` rejection into a
-`MangaNativeFetchFailed` domain error via `Effect.tryPromise` — see
+`manga-fetcher` is an npm workspace (root `package.json`), depended on
+by `api` as `"manga-fetcher": "*"`. It's wrapped by `api/src/domain/mangaFetcher/mangaFetcher.service.ts`
+(`MangaFetcherService`), which turns every `Promise` rejection into a
+`MangaFetcherFetchFailed` domain error via `Effect.tryPromise` — see
 [error handling](error.md) for the general pattern. `ScanProviderService` and
-the scan cron jobs (`api/src/scanProvider/`) are the current consumers.
+the scan cron jobs (`api/src/domain/scanProvider/`) are the current consumers.

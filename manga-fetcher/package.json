@@ -1,5 +1,5 @@
 {
-  "name": "manga-native",
+  "name": "manga-fetcher",
   "version": "0.1.0",
   "description": "",
   "main": "./lib/index.cjs",

@@ -11,7 +11,7 @@ import type {
 	MangaProviderRequestFailed,
 	MangaProviderResponseInvalid,
 } from "./manga/mangaProvider.service.js";
-import type { MangaNativeFetchFailed } from "./mangaNative/mangaNative.service.js";
+import type { MangaFetcherFetchFailed } from "./mangaFetcher/mangaFetcher.service.js";
 import type {
 	ImageFetchFailed,
 	S3Error,
@@ -41,4 +41,4 @@ export type DomainError =
 	| MangaProviderNotLinked
 	| ChapterNotFound
 	| ImageFetchFailed
-	| MangaNativeFetchFailed;
+	| MangaFetcherFetchFailed;

@@ -1,5 +1,5 @@
 import { Effect, Option } from "effect";
-import type { MangaProvider } from "manga-native";
+import type { MangaProvider } from "manga-fetcher";
 import { DB, DBLayer } from "../../../drizzle/db.js";
 import {
 	mangaProviders,

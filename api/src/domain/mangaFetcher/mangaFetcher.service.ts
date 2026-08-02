@@ -5,27 +5,27 @@ import {
 	type MangaProvider,
 	getMangaChapters as nativeGetMangaChapters,
 	getProviderCatalog as nativeGetProviderCatalog,
-} from "manga-native";
+} from "manga-fetcher";
 
 export type { MangaCatalogEntry, MangaChapter, MangaProvider };
 
-export class MangaNativeFetchFailed extends Data.TaggedError(
-	"MangaNativeFetchFailed",
+export class MangaFetcherFetchFailed extends Data.TaggedError(
+	"MangaFetcherFetchFailed",
 )<{ readonly message: string }> {
 	get internalMessage() {
-		return `manga-native fetch failed: ${this.message}`;
+		return `manga-fetcher fetch failed: ${this.message}`;
 	}
 }
 
-export class MangaNativeService extends Effect.Service<MangaNativeService>()(
-	"api/MangaNativeService",
+export class MangaFetcherService extends Effect.Service<MangaFetcherService>()(
+	"api/MangaFetcherService",
 	{
 		effect: Effect.gen(function* () {
 			function getMangaChapters(slug: string, provider: MangaProvider) {
 				return Effect.tryPromise({
 					try: () => nativeGetMangaChapters(slug, provider),
 					catch: (e) =>
-						new MangaNativeFetchFailed({
+						new MangaFetcherFetchFailed({
 							message: e instanceof Error ? e.message : String(e),
 						}),
 				});
@@ -35,7 +35,7 @@ export class MangaNativeService extends Effect.Service<MangaNativeService>()(
 				return Effect.tryPromise({
 					try: () => nativeGetProviderCatalog(provider),
 					catch: (e) =>
-						new MangaNativeFetchFailed({
+						new MangaFetcherFetchFailed({
 							message: e instanceof Error ? e.message : String(e),
 						}),
 				});

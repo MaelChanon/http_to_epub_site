@@ -5,9 +5,9 @@ import { chapters, pages } from "../../../drizzle/schema/providers.js";
 import { SQLError, toSQLError } from "../../../drizzle/schema/utils.js";
 import type { MangaDbId } from "../manga/manga.domain.js";
 import {
-	MangaNativeService,
+	MangaFetcherService,
 	type MangaProvider,
-} from "../mangaNative/mangaNative.service.js";
+} from "../mangaFetcher/mangaFetcher.service.js";
 import { S3Service } from "../s3/s3.service.js";
 import { ProviderRepository } from "./provider.repository.js";
 import {
@@ -51,7 +51,7 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 		effect: Effect.gen(function* () {
 			const db = yield* DB;
 			const s3 = yield* S3Service;
-			const mangaNative = yield* MangaNativeService;
+			const mangaFetcher = yield* MangaFetcherService;
 			const providerRepo = yield* ProviderRepository;
 
 			function upsertChapterRow(
@@ -144,7 +144,7 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 						provider,
 					);
 
-					const rawChapters = yield* mangaNative.getMangaChapters(
+					const rawChapters = yield* mangaFetcher.getMangaChapters(
 						slug,
 						provider,
 					);
@@ -298,7 +298,7 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 		dependencies: [
 			DBLayer,
 			S3Service.Default,
-			MangaNativeService.Default,
+			MangaFetcherService.Default,
 			ProviderRepository.Default,
 		],
 	},
