@@ -1,11 +1,11 @@
 import { Effect } from "effect";
-import { UnauthorizedError } from "../error.js";
+import { UserService } from "../domain/user/user.service.js";
+import { UnauthorizedError } from "../http/error.js";
 import {
 	InvalidSession,
 	MissingSession,
 	SessionService,
 } from "../session/session.service.js";
-import { UserService } from "../user/user.service.js";
 
 export class AuthService extends Effect.Service<AuthService>()(
 	"api/AuthService",

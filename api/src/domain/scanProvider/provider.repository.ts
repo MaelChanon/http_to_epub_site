@@ -1,9 +1,12 @@
 import { Effect, Option } from "effect";
 import type { MangaProvider } from "manga-native";
-import { DB, DBLayer } from "../db.js";
+import { DB, DBLayer } from "../../../drizzle/db.js";
+import {
+	mangaProviders,
+	providers,
+} from "../../../drizzle/schema/providers.js";
+import { SQLError, toSQLError } from "../../../drizzle/schema/utils.js";
 import type { MangaDbId } from "../manga/manga.domain.js";
-import { mangaProviders, providers } from "../schema/providers.js";
-import { SQLError, toSQLError } from "../schema/utils.js";
 import type { MangaProviderName } from "./scanProvider.domain.js";
 
 export class ProviderRepository extends Effect.Service<ProviderRepository>()(
@@ -20,10 +23,7 @@ export class ProviderRepository extends Effect.Service<ProviderRepository>()(
 				});
 			}
 
-			function ensureMangaProviderLink(
-				mangaDbId: MangaDbId,
-				name: MangaProvider,
-			) {
+			function ensureProvider(name: MangaProviderName) {
 				return Effect.gen(function* () {
 					const db = yield* DB;
 					return yield* db
@@ -56,24 +56,38 @@ export class ProviderRepository extends Effect.Service<ProviderRepository>()(
 										}),
 									);
 								}
-								const providerId = row.id;
-
-								yield* tx
-									.insert(mangaProviders)
-									.values({ mangaId: mangaDbId, providerId })
-									.onConflictDoNothing({
-										target: [mangaProviders.mangaId, mangaProviders.providerId],
-									})
-									.pipe(Effect.mapError(toSQLError));
-
-								return providerId;
+								return row.id;
 							}),
 						)
 						.pipe(Effect.catchTag("SqlError", toSQLError));
 				});
 			}
 
-			return { findProviderIdByName, ensureMangaProviderLink } as const;
+			function ensureMangaProviderLink(
+				mangaDbId: MangaDbId,
+				name: MangaProvider,
+			) {
+				return Effect.gen(function* () {
+					const db = yield* DB;
+					const providerId = yield* ensureProvider(name);
+
+					yield* db
+						.insert(mangaProviders)
+						.values({ mangaId: mangaDbId, providerId })
+						.onConflictDoNothing({
+							target: [mangaProviders.mangaId, mangaProviders.providerId],
+						})
+						.pipe(Effect.mapError(toSQLError));
+
+					return providerId;
+				});
+			}
+
+			return {
+				findProviderIdByName,
+				ensureProvider,
+				ensureMangaProviderLink,
+			} as const;
 		}),
 		dependencies: [DBLayer],
 	},

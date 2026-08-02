@@ -6,7 +6,7 @@ import {
 	HttpClientResponse,
 } from "@effect/platform";
 import { Data, Effect, Array as EffectArray, Option, Schema } from "effect";
-import { mangaGenre } from "../schema/mangas.js";
+import { mangaGenre } from "../../../drizzle/schema/mangas.js";
 
 import {
 	AniListId,

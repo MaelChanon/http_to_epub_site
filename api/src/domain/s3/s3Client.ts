@@ -2,7 +2,7 @@ import { S3Client as S3ClientSdk } from "@aws-sdk/client-s3";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
-import { appConfig } from "../config.js";
+import { appConfig } from "../../config.js";
 
 export class S3Client extends Context.Tag("S3Client")<
 	S3Client,

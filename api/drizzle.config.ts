@@ -7,7 +7,7 @@ const config = Effect.runSync(appConfig);
 
 export default defineConfig({
   out: "./drizzle",
-  schema: "./src/schema/*.ts",
+  schema: "./drizzle/schema/*.ts",
   dialect: "postgresql",
   dbCredentials: {
     url: config.databaseUrl,

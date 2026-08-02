@@ -1,4 +1,7 @@
 import { HttpApi } from "@effect/platform";
+import { MangaApiGroup } from "../domain/manga/manga.group.js";
+import { ScanProviderApiGroup } from "../domain/scanProvider/scanProvider.group.js";
+import { AuthApiGroup, UsersApiGroup } from "../domain/user/user.group.js";
 import {
 	BadRequestError,
 	ForbiddenError,
@@ -6,19 +9,20 @@ import {
 	NotFoundError,
 	UnauthorizedError,
 } from "./error.js";
-import { MangaApiGroup } from "./manga/manga.group.js";
-import { ScanProviderApiGroup } from "./scanProvider/scanProvider.group.js";
-import { AuthApiGroup, UsersApiGroup } from "./user/user.group.js";
 
-export { AniListId, Manga } from "./manga/manga.domain.js";
+export { AniListId, Manga } from "../domain/manga/manga.domain.js";
 export {
 	ChapterPages,
 	ChapterSummary,
 	MangaProviderChapters,
 	MangaProviderName,
 	ProviderMangaSummary,
-} from "./scanProvider/scanProvider.domain.js";
-export { CreateUserPayload, LoginPayload, User } from "./user/user.schema.js";
+} from "../domain/scanProvider/scanProvider.domain.js";
+export {
+	CreateUserPayload,
+	LoginPayload,
+	User,
+} from "../domain/user/user.schema.js";
 
 export class Api extends HttpApi.make("api")
 	.add(UsersApiGroup)

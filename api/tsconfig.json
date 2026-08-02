@@ -12,5 +12,5 @@
 		"noImplicitOverride": true,
 		"verbatimModuleSyntax": true
 	},
-	"include": ["src"]
+	"include": ["src","drizzle"]
 }

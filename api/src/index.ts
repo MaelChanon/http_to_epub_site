@@ -14,8 +14,8 @@ loadEnv({
 	),
 });
 
-import { ApiLive } from "./apiLive.js";
 import { appConfig } from "./config.js";
+import { ApiLive } from "./http/apiLive.js";
 import { AppLayer } from "./layer.js";
 import { LoggerLive } from "./log.js";
 
@@ -30,7 +30,7 @@ const server = Effect.gen(function* () {
 	yield* Effect.logInfo(
 		`Server listening on http://${config.host}:${config.port}`,
 	);
-	Layer.launch(HttpLive).pipe(NodeRuntime.runMain);
+	yield* Layer.launch(HttpLive);
 });
 
-Effect.runPromise(server);
+NodeRuntime.runMain(server);

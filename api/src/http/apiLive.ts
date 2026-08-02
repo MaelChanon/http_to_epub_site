@@ -1,10 +1,13 @@
 import { HttpApiBuilder } from "@effect/platform";
 import { Layer } from "effect";
+import { AuthenticationLive } from "../auth/auth.middleware.live.js";
+import { MangaApiGroupLive } from "../domain/manga/manga.controller.js";
+import { ScanProviderApiGroupLive } from "../domain/scanProvider/scanService.controller.js";
+import {
+	AuthApiGroupLive,
+	UsersApiGroupLive,
+} from "../domain/user/user.controller.js";
 import { Api } from "./api.js";
-import { AuthenticationLive } from "./auth/auth.middleware.live.js";
-import { MangaApiGroupLive } from "./manga/manga.controller.js";
-import { ScanProviderApiGroupLive } from "./scanProvider/scanService.controller.js";
-import { AuthApiGroupLive, UsersApiGroupLive } from "./user/user.controller.js";
 
 export { Api } from "./api.js";
 

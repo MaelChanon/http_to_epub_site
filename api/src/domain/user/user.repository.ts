@@ -1,8 +1,12 @@
 import { eq } from "drizzle-orm";
 import { Data, Effect } from "effect";
-import { DB, DBLayer } from "../db.js";
-import { users } from "../schema/users.js";
-import { getFirst, SQLError, toSQLError } from "../schema/utils.js";
+import { DB, DBLayer } from "../../../drizzle/db.js";
+import { users } from "../../../drizzle/schema/users.js";
+import {
+	getFirst,
+	SQLError,
+	toSQLError,
+} from "../../../drizzle/schema/utils.js";
 import { User, UserId, UserWithPassword } from "./user.domain.js";
 
 export class UserNotFound extends Data.TaggedError("UserNotFound")<{

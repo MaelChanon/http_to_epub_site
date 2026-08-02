@@ -5,7 +5,7 @@ import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
 import * as Redacted from "effect/Redacted";
 import { types } from "pg";
-import { appConfig } from "./config.js";
+import { appConfig } from "../src/config.js";
 import { relations } from "./schema/relations.js";
 
 const pgClientLive = Effect.gen(function* () {

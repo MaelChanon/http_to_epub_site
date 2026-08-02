@@ -1,5 +1,5 @@
 import { Effect, Match, Schema } from "effect";
-import type { DomainError } from "./appError.js";
+import type { DomainError } from "../domain/appError.js";
 
 export class NotFoundError extends Schema.TaggedError<NotFoundError>()(
 	"NotFoundError",

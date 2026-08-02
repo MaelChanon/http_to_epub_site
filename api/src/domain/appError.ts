@@ -1,4 +1,10 @@
-import type { EncryptionFailed } from "./encrypt/encryptService.js";
+import type { SQLError } from "../../drizzle/schema/utils.js";
+import type { EncryptionFailed } from "../encrypt/encryptService.js";
+import type {
+	InvalidSession,
+	MissingSession,
+	SessionStoreError,
+} from "../session/session.service.js";
 import type { MangaNotFound } from "./manga/manga.service.js";
 import type {
 	MangaNotFoundInProvider,
@@ -16,12 +22,6 @@ import type {
 	MangaNotFoundById,
 	MangaProviderNotLinked,
 } from "./scanProvider/scanProvider.service.js";
-import type { SQLError } from "./schema/utils.js";
-import type {
-	InvalidSession,
-	MissingSession,
-	SessionStoreError,
-} from "./session/session.service.js";
 import type { UserNotFound } from "./user/user.repository.js";
 
 export type DomainError =

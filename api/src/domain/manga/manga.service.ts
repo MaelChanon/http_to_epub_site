@@ -1,9 +1,17 @@
 import { eq } from "drizzle-orm";
 import { Data, Effect } from "effect";
-import { DB, DBLayer } from "../db.js";
+import { DB, DBLayer } from "../../../drizzle/db.js";
+import {
+	mangaGenres,
+	mangaStaff,
+	mangas,
+} from "../../../drizzle/schema/mangas.js";
+import {
+	getFirst,
+	SQLError,
+	toSQLError,
+} from "../../../drizzle/schema/utils.js";
 import { S3Service } from "../s3/s3.service.js";
-import { mangaGenres, mangaStaff, mangas } from "../schema/mangas.js";
-import { getFirst, SQLError, toSQLError } from "../schema/utils.js";
 import {
 	AniListId,
 	Manga,

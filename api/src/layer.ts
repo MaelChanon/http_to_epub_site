@@ -1,18 +1,18 @@
 import { Layer } from "effect";
+import { DBLayer } from "../drizzle/db.js";
 import { AuthService } from "./auth/auth.service.js";
-import { DBLayer } from "./db.js";
+import { MangaService } from "./domain/manga/manga.service.js";
+import { MangaProviderService } from "./domain/manga/mangaProvider.service.js";
+import { S3Service } from "./domain/s3/s3.service.js";
+import { ProviderRepository } from "./domain/scanProvider/provider.repository.js";
+import { ProviderCatalogService } from "./domain/scanProvider/providerCatalog.service.js";
+import { ScanProviderCronLive } from "./domain/scanProvider/scanProvider.cron.js";
+import { ScanProviderService } from "./domain/scanProvider/scanProvider.service.js";
+import { UsersRepository } from "./domain/user/user.repository.js";
+import { UserService } from "./domain/user/user.service.js";
 import { EncryptService } from "./encrypt/encryptService.js";
-import { MangaService } from "./manga/manga.service.js";
-import { MangaProviderService } from "./manga/mangaProvider.service.js";
 import { RedisClientLive } from "./redis.js";
-import { S3Service } from "./s3/s3.service.js";
-import { ProviderRepository } from "./scanProvider/provider.repository.js";
-import { ProviderCatalogService } from "./scanProvider/providerCatalog.service.js";
-import { ScanProviderCronLive } from "./scanProvider/scanProvider.cron.js";
-import { ScanProviderService } from "./scanProvider/scanProvider.service.js";
 import { SessionService } from "./session/session.service.js";
-import { UsersRepository } from "./user/user.repository.js";
-import { UserService } from "./user/user.service.js";
 
 const ServicesLive = Layer.mergeAll(
 	AuthService.Default,

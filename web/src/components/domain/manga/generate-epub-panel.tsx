@@ -1,5 +1,5 @@
 import type { ChangeEvent, ReactNode } from "react";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { IconBolt, IconClose, IconUpload } from "@/components/icons";
 import type { Manga } from "@/lib/api";
 import type { ChapterRange } from "./manga.util";
@@ -43,14 +43,6 @@ export function GenerateEpubPanel({
 		null,
 	);
 	const fileRef = useRef<HTMLInputElement>(null);
-
-	useEffect(() => {
-		return () => {
-			if (cover) {
-				URL.revokeObjectURL(cover.url);
-			}
-		};
-	}, [cover]);
 
 	const preset = DIM_PRESETS.find((p) => p.id === dimId) ?? DIM_PRESETS[0];
 	const dims =

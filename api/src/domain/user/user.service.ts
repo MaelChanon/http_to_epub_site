@@ -1,5 +1,5 @@
 import { Effect } from "effect";
-import { EncryptService } from "../encrypt/encryptService.js";
+import { EncryptService } from "../../encrypt/encryptService.js";
 import type { UserId } from "./user.domain.js";
 import { UsersRepository } from "./user.repository.js";
 import type { CreateUserPayload } from "./user.schema.js";

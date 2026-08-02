@@ -1,9 +1,9 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { Schema } from "effect";
 import { authKeys, getCurrentUser } from "@/auth/auth.queries";
+import { ChapterReader } from "@/components/domain/manga/chapter-reader";
+import { useManga } from "@/components/domain/manga/manga.queries";
 import { AniListId, MangaProviderName } from "@/lib/api";
-import { ChapterReader } from "@/manga/chapter-reader";
-import { useManga } from "@/manga/manga.queries";
 
 const isMangaProviderName = Schema.is(MangaProviderName);
 

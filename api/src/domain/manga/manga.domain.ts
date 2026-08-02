@@ -1,5 +1,9 @@
 import { Schema } from "effect";
-import { mangaFormat, mangaGenre, mangaStatus } from "../schema/mangas.js";
+import {
+	mangaFormat,
+	mangaGenre,
+	mangaStatus,
+} from "../../../drizzle/schema/mangas.js";
 
 export const AniListId = Schema.Int.pipe(Schema.brand("AniListId"));
 export type AniListId = typeof AniListId.Type;

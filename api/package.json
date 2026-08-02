@@ -3,7 +3,7 @@
 	"version": "1.0.0",
 	"type": "module",
 	"exports": {
-		".": "./src/api.ts"
+		".": "./src/http/api.ts"
 	},
 	"scripts": {
 		"dev": "tsx watch src/index.ts",

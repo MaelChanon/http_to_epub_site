@@ -1,12 +1,12 @@
 import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { authKeys, getCurrentUser } from "@/auth/auth.queries";
 import { Breadcrumbs } from "@/components/breadcrumbs";
+import { useManga } from "@/components/domain/manga/manga.queries";
+import { displayTitle } from "@/components/domain/manga/manga.util";
+import { MangaDetailBody } from "@/components/domain/manga/manga-detail-body";
 import { Header } from "@/components/header";
 import { IconArrowLeft } from "@/components/icons";
 import { AniListId, ApiError } from "@/lib/api";
-import { useManga } from "@/manga/manga.queries";
-import { displayTitle } from "@/manga/manga.util";
-import { MangaDetailBody } from "@/manga/manga-detail-body";
 
 export const Route = createFileRoute("/manga/$mangaId")({
 	beforeLoad: async ({ context }) => {

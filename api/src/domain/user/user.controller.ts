@@ -1,11 +1,15 @@
 import { HttpApiBuilder, HttpServerRequest } from "@effect/platform";
 import { Effect, Option } from "effect";
-import { Api } from "../api.js";
-import { CurrentUser, sessionCookie } from "../auth/auth.middleware.js";
-import { appConfig } from "../config.js";
-import { EncryptService } from "../encrypt/encryptService.js";
-import { BadRequestError, toHttpError, UnauthorizedError } from "../error.js";
-import { SessionService } from "../session/session.service.js";
+import { CurrentUser, sessionCookie } from "../../auth/auth.middleware.js";
+import { appConfig } from "../../config.js";
+import { EncryptService } from "../../encrypt/encryptService.js";
+import { Api } from "../../http/api.js";
+import {
+	BadRequestError,
+	toHttpError,
+	UnauthorizedError,
+} from "../../http/error.js";
+import { SessionService } from "../../session/session.service.js";
 import { User } from "./user.schema.js";
 import { UserService } from "./user.service.js";
 

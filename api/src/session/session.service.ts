@@ -1,8 +1,8 @@
 import * as crypto from "node:crypto";
 import { Data, Duration, Effect, Schema } from "effect";
 import { appConfig } from "../config.js";
+import { UserId } from "../domain/user/user.domain.js";
 import { RedisClient, RedisClientLive } from "../redis.js";
-import { UserId } from "../user/user.domain.js";
 
 export class InvalidSession extends Data.TaggedError("InvalidSession")<{
 	readonly reason: string;

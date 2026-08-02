@@ -1,7 +1,7 @@
 import { HttpApiBuilder } from "@effect/platform";
 import { Effect } from "effect";
-import { Api } from "../api.js";
-import { toHttpError } from "../error.js";
+import { Api } from "../../http/api.js";
+import { toHttpError } from "../../http/error.js";
 import { MangaService } from "../manga/manga.service.js";
 import { ProviderCatalogService } from "./providerCatalog.service.js";
 import { ScanProviderService } from "./scanProvider.service.js";

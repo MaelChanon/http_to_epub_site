@@ -11,7 +11,7 @@ import {
 	HttpClientResponse,
 } from "@effect/platform";
 import { Data, Effect, Schedule } from "effect";
-import { appConfig } from "../config.js";
+import { appConfig } from "../../config.js";
 import { S3Client, S3ClientLive } from "./s3Client.js";
 
 export class S3ObjectNotFound extends Data.TaggedError("S3ObjectNotFound")<{

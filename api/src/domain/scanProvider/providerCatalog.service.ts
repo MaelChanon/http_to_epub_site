@@ -1,12 +1,12 @@
 import { sql } from "drizzle-orm";
 import { Effect, Option } from "effect";
-import { DB, DBLayer } from "../db.js";
+import { DB, DBLayer } from "../../../drizzle/db.js";
+import { providerMangas } from "../../../drizzle/schema/providers.js";
+import { toSQLError } from "../../../drizzle/schema/utils.js";
 import {
 	MangaNativeService,
 	type MangaProvider,
 } from "../mangaNative/mangaNative.service.js";
-import { providerMangas } from "../schema/providers.js";
-import { toSQLError } from "../schema/utils.js";
 import { ProviderRepository } from "./provider.repository.js";
 import type { MangaProviderName } from "./scanProvider.domain.js";
 import { ProviderMangaSummary } from "./scanProvider.domain.js";

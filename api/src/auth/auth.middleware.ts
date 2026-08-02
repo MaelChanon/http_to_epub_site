@@ -1,7 +1,7 @@
 import { HttpApiMiddleware, HttpApiSecurity } from "@effect/platform";
 import { Context } from "effect";
-import { UnauthorizedError } from "../error.js";
-import type { User } from "../user/user.schema.js";
+import type { User } from "../domain/user/user.schema.js";
+import { UnauthorizedError } from "../http/error.js";
 
 export const CurrentUser = Context.GenericTag<User>("CurrentUser");
 
