@@ -1,11 +1,13 @@
 import { Data, Effect } from "effect";
 import {
+	type MangaCatalogEntry,
 	type MangaChapter,
 	type MangaProvider,
 	getMangaChapters as nativeGetMangaChapters,
+	getProviderCatalog as nativeGetProviderCatalog,
 } from "manga-native";
 
-export type { MangaChapter, MangaProvider };
+export type { MangaCatalogEntry, MangaChapter, MangaProvider };
 
 export class MangaNativeFetchFailed extends Data.TaggedError(
 	"MangaNativeFetchFailed",
@@ -29,7 +31,20 @@ export class MangaNativeService extends Effect.Service<MangaNativeService>()(
 				});
 			}
 
-			return { getMangaChapters } as const;
+			function getProviderCatalog(provider: MangaProvider) {
+				return Effect.tryPromise({
+					try: () => nativeGetProviderCatalog(provider),
+					catch: (e) =>
+						new MangaNativeFetchFailed({
+							message: e instanceof Error ? e.message : String(e),
+						}),
+				});
+			}
+
+			return {
+				getMangaChapters,
+				getProviderCatalog,
+			} as const;
 		}),
 	},
 ) {}

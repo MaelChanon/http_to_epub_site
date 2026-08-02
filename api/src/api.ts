@@ -11,6 +11,13 @@ import { ScanProviderApiGroup } from "./scanProvider/scanProvider.group.js";
 import { AuthApiGroup, UsersApiGroup } from "./user/user.group.js";
 
 export { AniListId, Manga } from "./manga/manga.domain.js";
+export {
+	ChapterPages,
+	ChapterSummary,
+	MangaProviderChapters,
+	MangaProviderName,
+	ProviderMangaSummary,
+} from "./scanProvider/scanProvider.domain.js";
 export { CreateUserPayload, LoginPayload, User } from "./user/user.schema.js";
 
 export class Api extends HttpApi.make("api")

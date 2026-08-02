@@ -46,9 +46,6 @@ export class MangaProviderData extends Schema.Class<MangaProviderData>(
 export const MangaDbId = Schema.UUID.pipe(Schema.brand("MangaDbId"));
 export type MangaDbId = typeof MangaDbId.Type;
 
-export const MangaProviderName = Schema.Literal("SUSHISCAN", "MANGA_ORIGINS");
-export type MangaProviderName = typeof MangaProviderName.Type;
-
 const {
 	coverImageUrl: _coverImageUrl,
 	...mangaProviderDataFieldsWithoutCover

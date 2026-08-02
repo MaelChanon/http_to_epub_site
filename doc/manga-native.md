@@ -4,12 +4,18 @@
 [Neon](https://neon-bindings.com/) and scaffolded/managed with
 `@neon-rs/cli`. It reuses the scraping logic already written in the
 `http_to_epub` Rust CLI (a sibling repo, see [Sibling repo dependency](#sibling-repo-dependency)
-below) and exposes it to TypeScript as a single async function.
+below) and exposes it to TypeScript as three async functions.
 
 ## API
 
 ```ts
-import { getMangaChapters, type MangaChapter, type MangaProvider } from "manga-native";
+import {
+  getMangaChapters,
+  getProviderCatalog,
+  type MangaChapter,
+  type MangaCatalogEntry,
+  type MangaProvider,
+} from "manga-native";
 
 type MangaProvider = "SUSHISCAN" | "MANGA_ORIGINS";
 
@@ -18,27 +24,33 @@ interface MangaChapter {
   pages: string[]; // page image URLs, in reading order
 }
 
+interface MangaCatalogEntry {
+  tag: string;
+  name: string;
+  coverUrl: string;
+  chapterCount: number;
+}
+
 function getMangaChapters(slug: string, provider: MangaProvider): Promise<MangaChapter[]>;
+function getProviderCatalog(provider: MangaProvider): Promise<MangaCatalogEntry[]>;
 ```
 
-`slug` is the provider's manga tag (e.g. `"jojos-bizarre-adventure"`). There's
-no single-chapter lookup: a slug alone doesn't identify one chapter, so the
-function fetches the manga's info then all of its chapters in one call.
+
+`getProviderCatalog` scrapes a provider's **entire** manga catalog (full
+pagination, one `get_manga_info` call per manga found) — it can take several
+minutes and is meant to be called from a scheduled job, never from a
+synchronous HTTP request.
+
 Provider base URLs are hardcoded in `src/lib.rs` (`https://sushiscan.fr`,
 `https://mangas-origines.fr`) — the TS caller only picks which provider, not
 the URL.
 
 ## Structure
 
-- `src/lib.rs` — the Rust side. `#[neon::export] async fn get_manga_chapters`
-  dispatches to `htpp_to_epub::provider::{SushiScan, MangaOrigins}`
-  (`Provider::get_manga_info` then `get_manga_chapters`), and maps the result
-  to a local `MangaChapter` struct (`#[serde(rename_all = "camelCase")]`) so
-  the JS side gets `chapterNumber`/`pages`, not the Rust `chapter_number`.
 - `src/index.cts` / `src/index.mts` / `src/load.cts` — the TS wrapper (CJS +
   ESM entry points, standard Neon library pattern). `load.cts` just
   `require("../index.node")`; `index.cts` declares types for the untyped
-  native export and re-exports a typed `getMangaChapters`.
+  native export and re-exports typed `getMangaChapters`/`getProviderCatalog`.
 - `Cargo.toml` — depends on `htpp_to_epub` via `path = "../../http_to_epub"`,
   and on `neon` with the `tokio` and `serde` features (see below).
 
@@ -57,7 +69,8 @@ it, and `block_on`s the whole non-Send call chain there — never crossing a
 thread mid-`.await`. Only the final `Result<Vec<MangaChapter>, String>` (all
 plain data, trivially `Send`) crosses back to the exported `async fn` through
 a `tokio::sync::oneshot` channel, which *is* `Send` regardless of what ran on
-the other thread.
+the other thread. `fetch_catalog_blocking` and `fetch_chapter_numbers_blocking`
+follow the exact same shape for `get_provider_catalog`.
 
 ## Sibling repo dependency
 
@@ -89,7 +102,8 @@ and `cargo.log` are gitignored and must be rebuilt per machine/environment.
 ## Using it from the API
 
 `native/manga-native` is an npm workspace (root `package.json`), depended on
-by `api` as `"manga-native": "*"`. Not wired into any service or controller
-yet — see `good-pratices.md` for how to add one, and
-[error handling](error.md) for how to turn its `Promise` rejections into a
-domain error before they reach a service.
+by `api` as `"manga-native": "*"`. It's wrapped by `api/src/manga/mangaNative.service.ts`
+(`MangaNativeService`), which turns every `Promise` rejection into a
+`MangaNativeFetchFailed` domain error via `Effect.tryPromise` — see
+[error handling](error.md) for the general pattern. `ScanProviderService` and
+the scan cron jobs (`api/src/scanProvider/`) are the current consumers.

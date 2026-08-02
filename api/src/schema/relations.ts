@@ -45,6 +45,10 @@ export const relations = defineRelations(schema, (r) => ({
 			from: r.providers.id,
 			to: r.chapters.providerId,
 		}),
+		catalog: r.many.providerMangas({
+			from: r.providers.id,
+			to: r.providerMangas.providerId,
+		}),
 	},
 	mangaProviders: {
 		manga: r.one.mangas({
@@ -60,10 +64,12 @@ export const relations = defineRelations(schema, (r) => ({
 		manga: r.one.mangas({
 			from: r.chapters.mangaId,
 			to: r.mangas.id,
+			optional: false,
 		}),
 		provider: r.one.providers({
 			from: r.chapters.providerId,
 			to: r.providers.id,
+			optional: false,
 		}),
 		pages: r.many.pages({
 			from: r.chapters.id,
@@ -74,6 +80,12 @@ export const relations = defineRelations(schema, (r) => ({
 		chapter: r.one.chapters({
 			from: r.pages.chapterId,
 			to: r.chapters.id,
+		}),
+	},
+	providerMangas: {
+		provider: r.one.providers({
+			from: r.providerMangas.providerId,
+			to: r.providers.id,
 		}),
 	},
 }));

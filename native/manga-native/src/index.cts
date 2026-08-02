@@ -8,11 +8,19 @@ declare module "./load.cjs" {
 		slug: string,
 		provider: string,
 	): Promise<RawMangaChapter[]>;
+	function getProviderCatalog(provider: string): Promise<RawMangaCatalogEntry[]>;
 }
 
 interface RawMangaChapter {
 	chapterNumber: number;
 	pages: string[];
+}
+
+interface RawMangaCatalogEntry {
+	tag: string;
+	name: string;
+	coverUrl: string;
+	chapterCount: number;
 }
 
 export type MangaProvider = "SUSHISCAN" | "MANGA_ORIGINS";
@@ -22,9 +30,23 @@ export interface MangaChapter {
 	pages: string[];
 }
 
+export interface MangaCatalogEntry {
+	tag: string;
+	name: string;
+	coverUrl: string;
+	chapterCount: number;
+}
+
 export function getMangaChapters(
 	slug: string,
 	provider: MangaProvider,
 ): Promise<MangaChapter[]> {
 	return addon.getMangaChapters(slug, provider);
 }
+
+export function getProviderCatalog(
+	provider: MangaProvider,
+): Promise<MangaCatalogEntry[]> {
+	return addon.getProviderCatalog(provider);
+}
+
