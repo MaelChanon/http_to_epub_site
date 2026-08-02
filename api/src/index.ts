@@ -1,8 +1,19 @@
 import { createServer } from "node:http";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { HttpApiBuilder, HttpMiddleware } from "@effect/platform";
 import * as NodeHttpServer from "@effect/platform-node/NodeHttpServer";
 import * as NodeRuntime from "@effect/platform-node/NodeRuntime";
+import { config as loadEnv } from "dotenv";
 import { Effect, Layer } from "effect";
+
+loadEnv({
+	path: path.resolve(
+		path.dirname(fileURLToPath(import.meta.url)),
+		"../../.env",
+	),
+});
+
 import { ApiLive } from "./apiLive.js";
 import { appConfig } from "./config.js";
 import { AppLayer } from "./layer.js";

@@ -13,9 +13,7 @@ export default defineConfig({
 	},
 	server: {
 		proxy: {
-			"/todos": "http://localhost:3000",
-			"/auth": "http://localhost:3000",
-			"/user": "http://localhost:3000",
+			"/api": "http://localhost:3000",
 		},
 	},
 });

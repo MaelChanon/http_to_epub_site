@@ -43,6 +43,7 @@ export const toHttpError = (
 					"UserNotFound",
 					"S3ObjectNotFound",
 					"MangaNotFoundInProvider",
+					"MangaNotFound",
 					() =>
 						Effect.fail(
 							new NotFoundError({

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 
 const STORAGE_KEY = "manga-theme";
 
@@ -11,13 +11,10 @@ function readStoredTheme(): Theme {
 export function useTheme() {
 	const [theme, setTheme] = useState<Theme>(readStoredTheme);
 
-	useEffect(() => {
-		document.documentElement.dataset.theme = theme;
-		localStorage.setItem(STORAGE_KEY, theme);
-	}, [theme]);
-
 	function toggleTheme() {
 		setTheme((current) => (current === "dark" ? "light" : "dark"));
+		document.documentElement.dataset.theme = theme;
+		localStorage.setItem(STORAGE_KEY, theme);
 	}
 
 	return { theme, toggleTheme };

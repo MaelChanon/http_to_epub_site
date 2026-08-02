@@ -5,7 +5,7 @@ import {
 	HttpClientRequest,
 	HttpClientResponse,
 } from "@effect/platform";
-import { Array, Data, Effect, Option, Schema } from "effect";
+import { Data, Effect, Array as EffectArray, Option, Schema } from "effect";
 import { S3Service } from "../s3/s3.service.js";
 import { mangaGenre } from "../schema/mangas.js";
 
@@ -233,7 +233,7 @@ export class MangaProviderService extends Effect.Service<MangaProviderService>()
 					const media = yield* fetchMedia(anilistId);
 					const path = yield* uploadCover(anilistId, media.coverImage.large);
 					const genres = yield* Effect.forEach(media.genres, toMangaGenre).pipe(
-						Effect.map(Array.getSomes),
+						Effect.map(EffectArray.getSomes),
 					);
 
 					return new MangaProviderData({

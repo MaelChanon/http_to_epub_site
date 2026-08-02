@@ -1,4 +1,5 @@
 import type { EncryptionFailed } from "./encrypt/encryptService.js";
+import type { MangaNotFound } from "./manga/manga.service.js";
 import type {
 	MangaNotFoundInProvider,
 	MangaProviderRequestFailed,
@@ -24,4 +25,5 @@ export type DomainError =
 	| S3Error
 	| MangaNotFoundInProvider
 	| MangaProviderRequestFailed
-	| MangaProviderResponseInvalid;
+	| MangaProviderResponseInvalid
+	| MangaNotFound;

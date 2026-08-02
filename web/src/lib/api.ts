@@ -1,9 +1,15 @@
 import { FetchHttpClient, HttpApiClient } from "@effect/platform";
-import type { CreateUserPayload, LoginPayload, User } from "@workspace/api";
-import { Api } from "@workspace/api";
+import type {
+	CreateUserPayload,
+	LoginPayload,
+	Manga,
+	User,
+} from "@workspace/api";
+import { type AniListId, Api } from "@workspace/api";
 import { Effect, Layer } from "effect";
 
-export type { User } from "@workspace/api";
+export type { Manga, User } from "@workspace/api";
+export { AniListId } from "@workspace/api";
 
 export class ApiError extends Error {}
 
@@ -31,6 +37,28 @@ export function signup(payload: CreateUserPayload): Promise<User> {
 export function logout(): Promise<void> {
 	return Effect.runPromise(
 		client.auth.logout().pipe(Effect.catchAll(toApiError)),
+	);
+}
+
+export function getCurrentUser(): Promise<User | null> {
+	return Effect.runPromise(
+		client.auth.me().pipe(Effect.catchAll(() => Effect.succeed(null))),
+	);
+}
+
+export function getManga(mangaId: AniListId): Promise<Manga> {
+	return Effect.runPromise(
+		client.manga
+			.getManga({ path: { mangaId } })
+			.pipe(Effect.catchAll(toApiError)),
+	);
+}
+
+export function refreshManga(mangaId: AniListId): Promise<Manga> {
+	return Effect.runPromise(
+		client.manga
+			.refreshManga({ path: { mangaId } })
+			.pipe(Effect.catchAll(toApiError)),
 	);
 }
 

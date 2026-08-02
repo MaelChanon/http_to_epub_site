@@ -4,6 +4,7 @@ import {
 	NoSuchKey,
 	PutObjectCommand,
 } from "@aws-sdk/client-s3";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { Data, Effect } from "effect";
 import { appConfig } from "../config.js";
 import { S3Client, S3ClientLive } from "./s3Client.js";
@@ -49,6 +50,18 @@ export class S3Service extends Effect.Service<S3Service>()("api/S3Service", {
 					),
 				catch: toS3Error("upload"),
 			}).pipe(Effect.asVoid);
+		}
+
+		function getUrl(key: string, expiresInSeconds = 3600) {
+			return Effect.tryPromise({
+				try: () =>
+					getSignedUrl(
+						client,
+						new GetObjectCommand({ Bucket: config.s3Bucket, Key: key }),
+						{ expiresIn: expiresInSeconds },
+					),
+				catch: toS3Error("getUrl"),
+			});
 		}
 
 		function download(key: string) {
@@ -101,7 +114,7 @@ export class S3Service extends Effect.Service<S3Service>()("api/S3Service", {
 			});
 		}
 
-		return { upload, download, list } as const;
+		return { upload, download, list, getUrl } as const;
 	}),
 	dependencies: [S3ClientLive],
 }) {}
