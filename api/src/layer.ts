@@ -7,6 +7,7 @@ import { MangaService } from "./manga/manga.service.js";
 import { MangaProviderService } from "./manga/mangaProvider.service.js";
 import { RedisClientLive } from "./redis.js";
 import { S3Service } from "./s3/s3.service.js";
+import { ScanProviderService } from "./scanProvider/scanProvider.service.js";
 import { SessionService } from "./session/session.service.js";
 import { UserService } from "./user/user.service.js";
 
@@ -23,6 +24,7 @@ const selectLayers = Effect.gen(function* () {
 		S3Service.Default,
 		MangaProviderService.Default,
 		MangaService.Default,
+		ScanProviderService.Default,
 	);
 });
 

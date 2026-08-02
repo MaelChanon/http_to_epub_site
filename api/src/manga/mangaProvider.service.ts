@@ -6,7 +6,6 @@ import {
 	HttpClientResponse,
 } from "@effect/platform";
 import { Data, Effect, Array as EffectArray, Option, Schema } from "effect";
-import { S3Service } from "../s3/s3.service.js";
 import { mangaGenre } from "../schema/mangas.js";
 
 import {
@@ -96,11 +95,6 @@ function toPublishedAt(startDate: AniListMedia["startDate"]) {
 	);
 }
 
-function coverObjectKey(anilistId: AniListId, coverUrl: string) {
-	const extension = new URL(coverUrl).pathname.split(".").pop() ?? "jpg";
-	return `covers/${anilistId}.${extension}`;
-}
-
 const MANGA_GENRE_VALUES = new Set<string>(mangaGenre.enumValues);
 
 function toMangaGenre(genre: string) {
@@ -142,7 +136,6 @@ export class MangaProviderService extends Effect.Service<MangaProviderService>()
 	{
 		effect: Effect.gen(function* () {
 			const client = yield* HttpClient.HttpClient;
-			const s3 = yield* S3Service;
 
 			function fetchMedia(anilistId: AniListId) {
 				return Effect.gen(function* () {
@@ -200,38 +193,9 @@ export class MangaProviderService extends Effect.Service<MangaProviderService>()
 				});
 			}
 
-			function uploadCover(anilistId: AniListId, coverUrl: string) {
-				return Effect.gen(function* () {
-					const okResponse = yield* client.get(coverUrl).pipe(
-						Effect.flatMap(HttpClientResponse.filterStatusOk),
-						Effect.mapError(
-							(error) =>
-								new MangaProviderRequestFailed({ message: error.message }),
-						),
-					);
-
-					const bytes = yield* okResponse.arrayBuffer.pipe(
-						Effect.mapError(
-							(error) =>
-								new MangaProviderRequestFailed({ message: error.message }),
-						),
-					);
-
-					const key = coverObjectKey(anilistId, coverUrl);
-					yield* s3.upload(
-						key,
-						new Uint8Array(bytes),
-						okResponse.headers["content-type"],
-					);
-
-					return key;
-				});
-			}
-
 			function fetchById(anilistId: AniListId) {
 				return Effect.gen(function* () {
 					const media = yield* fetchMedia(anilistId);
-					const path = yield* uploadCover(anilistId, media.coverImage.large);
 					const genres = yield* Effect.forEach(media.genres, toMangaGenre).pipe(
 						Effect.map(EffectArray.getSomes),
 					);
@@ -247,7 +211,7 @@ export class MangaProviderService extends Effect.Service<MangaProviderService>()
 						totalChapters: media.chapters,
 						score: media.averageScore,
 						summary: media.description,
-						path,
+						coverImageUrl: media.coverImage.large,
 						genres,
 						staff: media.staff.edges.map(
 							(edge) =>
@@ -262,6 +226,6 @@ export class MangaProviderService extends Effect.Service<MangaProviderService>()
 
 			return { fetchById };
 		}),
-		dependencies: [FetchHttpClient.layer, S3Service.Default],
+		dependencies: [FetchHttpClient.layer],
 	},
 ) {}

@@ -7,6 +7,7 @@ import {
 	UnauthorizedError,
 } from "./error.js";
 import { MangaApiGroup } from "./manga/manga.group.js";
+import { ScanProviderApiGroup } from "./scanProvider/scanProvider.group.js";
 import { AuthApiGroup, UsersApiGroup } from "./user/user.group.js";
 
 export { AniListId, Manga } from "./manga/manga.domain.js";
@@ -16,6 +17,7 @@ export class Api extends HttpApi.make("api")
 	.add(UsersApiGroup)
 	.add(AuthApiGroup)
 	.add(MangaApiGroup)
+	.add(ScanProviderApiGroup)
 	.addError(NotFoundError, { status: 404 })
 	.addError(BadRequestError, { status: 400 })
 	.addError(InternalServerError, { status: 500 })

@@ -1,11 +1,17 @@
 import type { EncryptionFailed } from "./encrypt/encryptService.js";
 import type { MangaNotFound } from "./manga/manga.service.js";
+import type { MangaNativeFetchFailed } from "./manga/mangaNative.service.js";
 import type {
 	MangaNotFoundInProvider,
 	MangaProviderRequestFailed,
 	MangaProviderResponseInvalid,
 } from "./manga/mangaProvider.service.js";
-import type { S3Error, S3ObjectNotFound } from "./s3/s3.service.js";
+import type {
+	ImageFetchFailed,
+	S3Error,
+	S3ObjectNotFound,
+} from "./s3/s3.service.js";
+import type { MangaNotFoundById } from "./scanProvider/scanProvider.service.js";
 import type { SQLError } from "./schema/utils.js";
 import type {
 	InvalidSession,
@@ -26,4 +32,7 @@ export type DomainError =
 	| MangaNotFoundInProvider
 	| MangaProviderRequestFailed
 	| MangaProviderResponseInvalid
-	| MangaNotFound;
+	| MangaNotFound
+	| MangaNotFoundById
+	| ImageFetchFailed
+	| MangaNativeFetchFailed;

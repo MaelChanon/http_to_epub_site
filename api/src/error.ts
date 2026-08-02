@@ -44,6 +44,7 @@ export const toHttpError = (
 					"S3ObjectNotFound",
 					"MangaNotFoundInProvider",
 					"MangaNotFound",
+					"MangaNotFoundById",
 					() =>
 						Effect.fail(
 							new NotFoundError({
@@ -58,6 +59,8 @@ export const toHttpError = (
 					"S3Error",
 					"MangaProviderRequestFailed",
 					"MangaProviderResponseInvalid",
+					"ImageFetchFailed",
+					"MangaNativeFetchFailed",
 					() =>
 						Effect.fail(
 							new InternalServerError({ message: "Internal server error" }),

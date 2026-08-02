@@ -83,9 +83,17 @@ export class MangaService extends Effect.Service<MangaService>()(
 				return db
 					.transaction((tx) =>
 						Effect.gen(function* () {
+							const existing = yield* tx.query.mangas
+								.findFirst({ where: { mangaId: data.mangaId } })
+								.pipe(Effect.mapError(toSQLError));
+
+							const mangaDbId = existing?.id ?? crypto.randomUUID();
+							const path = `${mangaDbId}/cover.${new URL(data.coverImageUrl).pathname.split(".").pop() || "jpg"}`;
+
 							const values = {
+								id: mangaDbId,
 								mangaId: data.mangaId,
-								path: data.path,
+								path,
 								titleRomaji: data.titleRomaji,
 								titleEnglish: data.titleEnglish,
 								titleNative: data.titleNative,
@@ -134,7 +142,9 @@ export class MangaService extends Effect.Service<MangaService>()(
 									.pipe(Effect.mapError(toSQLError));
 							}
 
-							const coverUrl = yield* s3.getUrl(manga.path);
+							yield* s3.fetchAndUpload(path, data.coverImageUrl);
+
+							const coverUrl = yield* s3.getUrl(path);
 
 							return new Manga({
 								...manga,
@@ -149,7 +159,10 @@ export class MangaService extends Effect.Service<MangaService>()(
 					.pipe(Effect.catchTag("SqlError", toSQLError));
 			}
 
-			return { createManga, getManga } as const;
+			return {
+				createManga,
+				getManga,
+			} as const;
 		}),
 		dependencies: [DBLayer, S3Service.Default],
 	},

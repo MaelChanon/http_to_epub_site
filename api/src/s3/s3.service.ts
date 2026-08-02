@@ -5,7 +5,12 @@ import {
 	PutObjectCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import { Data, Effect } from "effect";
+import {
+	FetchHttpClient,
+	HttpClient,
+	HttpClientResponse,
+} from "@effect/platform";
+import { Data, Effect, Schedule } from "effect";
 import { appConfig } from "../config.js";
 import { S3Client, S3ClientLive } from "./s3Client.js";
 
@@ -26,6 +31,19 @@ export class S3Error extends Data.TaggedError("S3Error")<{
 	}
 }
 
+export class ImageFetchFailed extends Data.TaggedError("ImageFetchFailed")<{
+	readonly url: string;
+	readonly message: string;
+}> {
+	get internalMessage() {
+		return `Failed to fetch image at ${this.url}: ${this.message}`;
+	}
+}
+
+const uploadRetrySchedule = Schedule.exponential("200 millis").pipe(
+	Schedule.intersect(Schedule.recurs(4)),
+);
+
 const toS3Error = (operation: string) => (e: unknown) =>
 	new S3Error({
 		operation,
@@ -36,6 +54,7 @@ export class S3Service extends Effect.Service<S3Service>()("api/S3Service", {
 	effect: Effect.gen(function* () {
 		const client = yield* S3Client;
 		const config = yield* appConfig;
+		const httpClient = yield* HttpClient.HttpClient;
 
 		function upload(key: string, body: Uint8Array, contentType?: string) {
 			return Effect.tryPromise({
@@ -114,7 +133,30 @@ export class S3Service extends Effect.Service<S3Service>()("api/S3Service", {
 			});
 		}
 
-		return { upload, download, list, getUrl } as const;
+		function fetchAndUpload(key: string, url: string) {
+			return Effect.gen(function* () {
+				const response = yield* httpClient.get(url).pipe(
+					Effect.flatMap(HttpClientResponse.filterStatusOk),
+					Effect.mapError(
+						(error) => new ImageFetchFailed({ url, message: error.message }),
+					),
+				);
+
+				const bytes = yield* response.arrayBuffer.pipe(
+					Effect.mapError(
+						(error) => new ImageFetchFailed({ url, message: error.message }),
+					),
+				);
+
+				yield* upload(
+					key,
+					new Uint8Array(bytes),
+					response.headers["content-type"],
+				).pipe(Effect.retry(uploadRetrySchedule));
+			});
+		}
+
+		return { upload, download, list, getUrl, fetchAndUpload } as const;
 	}),
-	dependencies: [S3ClientLive],
+	dependencies: [S3ClientLive, FetchHttpClient.layer],
 }) {}

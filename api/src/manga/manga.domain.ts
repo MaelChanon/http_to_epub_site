@@ -38,7 +38,7 @@ export class MangaProviderData extends Schema.Class<MangaProviderData>(
 	totalChapters: Schema.NullOr(Schema.Int),
 	score: Schema.NullOr(Schema.Int),
 	summary: Schema.NullOr(Schema.NonEmptyTrimmedString),
-	path: Schema.NonEmptyTrimmedString,
+	coverImageUrl: Schema.NonEmptyTrimmedString,
 	genres: Schema.Array(MangaGenre),
 	staff: Schema.Array(MangaStaff),
 }) {}
@@ -46,11 +46,16 @@ export class MangaProviderData extends Schema.Class<MangaProviderData>(
 export const MangaDbId = Schema.UUID.pipe(Schema.brand("MangaDbId"));
 export type MangaDbId = typeof MangaDbId.Type;
 
-const { path: _path, ...mangaProviderDataFieldsWithoutPath } =
-	MangaProviderData.fields;
+export const MangaProviderName = Schema.Literal("SUSHISCAN", "MANGA_ORIGINS");
+export type MangaProviderName = typeof MangaProviderName.Type;
+
+const {
+	coverImageUrl: _coverImageUrl,
+	...mangaProviderDataFieldsWithoutCover
+} = MangaProviderData.fields;
 
 export class Manga extends Schema.Class<Manga>("Manga")({
-	...mangaProviderDataFieldsWithoutPath,
+	...mangaProviderDataFieldsWithoutCover,
 	id: MangaDbId,
 	coverUrl: Schema.NonEmptyTrimmedString,
 }) {}
