@@ -1,0 +1,17 @@
+[package]
+name = "manga-native"
+version = "0.1.0"
+license = "ISC"
+edition = "2024"
+exclude = ["index.node"]
+
+[lib]
+crate-type = ["cdylib"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+neon = { version = "1.1", features = ["tokio", "serde"] }
+serde = { version = "1.0", features = ["derive"] }
+tokio = { version = "1", features = ["rt", "sync"] }
+htpp_to_epub = { path = "../../http_to_epub" }

@@ -4,7 +4,8 @@
 	"private": true,
 	"workspaces": [
 		"api",
-		"web"
+		"web",
+		"native/manga-native"
 	],
 	"scripts": {
 		"check": "biome check",
