@@ -1,21 +1,23 @@
 import { FetchHttpClient, HttpApiClient } from "@effect/platform";
 import type {
+	ChapterPages,
 	CreateUserPayload,
 	LoginPayload,
 	Manga,
 	MangaProviderChapters,
+	MangaProviderName,
 	User,
 } from "@workspace/api";
 import { type AniListId, Api } from "@workspace/api";
 import { Effect, Layer } from "effect";
 
 export type {
+	ChapterPages,
 	Manga,
 	MangaProviderChapters,
-	MangaProviderName,
 	User,
 } from "@workspace/api";
-export { AniListId } from "@workspace/api";
+export { AniListId, MangaProviderName } from "@workspace/api";
 
 export class ApiError extends Error {}
 
@@ -74,6 +76,18 @@ export function getMangaProviders(
 	return Effect.runPromise(
 		client.scanProvider
 			.getMangaProviders({ path: { mangaId } })
+			.pipe(Effect.catchAll(toApiError)),
+	);
+}
+
+export function getChapterPages(
+	mangaId: AniListId,
+	provider: MangaProviderName,
+	number: number,
+): Promise<ChapterPages> {
+	return Effect.runPromise(
+		client.scanProvider
+			.getMangaProviderChapterPages({ path: { mangaId, provider, number } })
 			.pipe(Effect.catchAll(toApiError)),
 	);
 }
