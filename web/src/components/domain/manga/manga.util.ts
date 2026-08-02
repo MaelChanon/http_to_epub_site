@@ -13,6 +13,17 @@ export function synopsisText(summary: string) {
 	return summary.replace(/<[^>]+>/g, "").trim();
 }
 
+export function slugify(value: string) {
+	return value
+		.normalize("NFD")
+		.replace(/[̀-ͯ]/g, "")
+		.replace(/['’]/g, "")
+		.trim()
+		.toLowerCase()
+		.replace(/[^a-z0-9]+/g, "-")
+		.replace(/^-+|-+$/g, "");
+}
+
 export function formatEnumLabel(value: string) {
 	return value
 		.toLowerCase()

@@ -142,6 +142,7 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 					const providerId = yield* providerRepo.ensureMangaProviderLink(
 						mangaDbId,
 						provider,
+						slug,
 					);
 
 					const rawChapters = yield* mangaFetcher.getMangaChapters(
@@ -207,13 +208,26 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 
 			function listMangaProviders(mangaDbId: MangaDbId) {
 				return Effect.gen(function* () {
-					const rows = yield* db.query.chapters
-						.findMany({
-							where: { mangaId: mangaDbId },
-							with: { pages: true, provider: true },
-							orderBy: { number: "asc" },
-						})
-						.pipe(Effect.mapError(toSQLError));
+					const [rows, links] = yield* Effect.all([
+						db.query.chapters
+							.findMany({
+								where: { mangaId: mangaDbId },
+								with: { pages: true, provider: true },
+								orderBy: { number: "asc" },
+							})
+							.pipe(Effect.mapError(toSQLError)),
+						db.query.mangaProviders
+							.findMany({
+								where: { mangaId: mangaDbId },
+								with: { provider: true },
+							})
+							.pipe(Effect.mapError(toSQLError)),
+					]);
+
+					const tagByProvider = new Map<MangaProvider, string | null>();
+					for (const link of links) {
+						tagByProvider.set(link.provider.name, link.tag);
+					}
 
 					const chaptersByProvider = new Map<MangaProvider, ChapterSummary[]>();
 					for (const row of rows) {
@@ -226,7 +240,11 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 					return Array.from(
 						chaptersByProvider,
 						([provider, chapters]) =>
-							new MangaProviderChapters({ provider, chapters }),
+							new MangaProviderChapters({
+								provider,
+								chapters,
+								tag: tagByProvider.get(provider) ?? null,
+							}),
 					);
 				});
 			}

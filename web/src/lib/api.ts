@@ -6,6 +6,7 @@ import type {
 	Manga,
 	MangaProviderChapters,
 	MangaProviderName,
+	ProviderMangaSummary,
 	User,
 } from "@workspace/api";
 import { type AniListId, Api } from "@workspace/api";
@@ -15,6 +16,7 @@ export type {
 	ChapterPages,
 	Manga,
 	MangaProviderChapters,
+	ProviderMangaSummary,
 	User,
 } from "@workspace/api";
 export { AniListId, MangaProviderName } from "@workspace/api";
@@ -88,6 +90,28 @@ export function getChapterPages(
 	return Effect.runPromise(
 		client.scanProvider
 			.getMangaProviderChapterPages({ path: { mangaId, provider, number } })
+			.pipe(Effect.catchAll(toApiError)),
+	);
+}
+
+export function syncMangaChapters(
+	mangaId: AniListId,
+	payload: { slug: string; provider: MangaProviderName },
+): Promise<void> {
+	return Effect.runPromise(
+		client.scanProvider
+			.syncMangaChapters({ path: { mangaId }, payload })
+			.pipe(Effect.catchAll(toApiError)),
+	);
+}
+
+export function searchProviderCatalog(
+	provider: MangaProviderName,
+	q: string,
+): Promise<readonly ProviderMangaSummary[]> {
+	return Effect.runPromise(
+		client.scanProvider
+			.searchProviderCatalog({ path: { provider }, urlParams: { q } })
 			.pipe(Effect.catchAll(toApiError)),
 	);
 }

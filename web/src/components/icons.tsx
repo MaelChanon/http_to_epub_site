@@ -104,6 +104,33 @@ export function IconGrid(props: IconProps) {
 	);
 }
 
+export function IconPlus(props: IconProps) {
+	return (
+		<svg aria-hidden="true" {...base} {...props}>
+			<line x1="12" y1="5" x2="12" y2="19" />
+			<line x1="5" y1="12" x2="19" y2="12" />
+		</svg>
+	);
+}
+
+export function IconExternalLink(props: IconProps) {
+	return (
+		<svg aria-hidden="true" {...base} {...props}>
+			<path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6" />
+			<polyline points="15 3 21 3 21 9" />
+			<line x1="10" y1="14" x2="21" y2="3" />
+		</svg>
+	);
+}
+
+export function IconCheck(props: IconProps) {
+	return (
+		<svg aria-hidden="true" {...base} {...props}>
+			<polyline points="20 6 9 17 4 12" />
+		</svg>
+	);
+}
+
 export function IconClose(props: IconProps) {
 	return (
 		<svg

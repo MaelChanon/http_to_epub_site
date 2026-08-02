@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import { Effect, Option } from "effect";
 import type { MangaProvider } from "manga-fetcher";
 import { DB, DBLayer } from "../../../drizzle/db.js";
@@ -66,6 +67,7 @@ export class ProviderRepository extends Effect.Service<ProviderRepository>()(
 			function ensureMangaProviderLink(
 				mangaDbId: MangaDbId,
 				name: MangaProvider,
+				tag: string,
 			) {
 				return Effect.gen(function* () {
 					const db = yield* DB;
@@ -73,9 +75,10 @@ export class ProviderRepository extends Effect.Service<ProviderRepository>()(
 
 					yield* db
 						.insert(mangaProviders)
-						.values({ mangaId: mangaDbId, providerId })
-						.onConflictDoNothing({
+						.values({ mangaId: mangaDbId, providerId, tag })
+						.onConflictDoUpdate({
 							target: [mangaProviders.mangaId, mangaProviders.providerId],
+							set: { tag: sql`excluded.tag` },
 						})
 						.pipe(Effect.mapError(toSQLError));
 

@@ -1,10 +1,15 @@
 import { Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { IconChevronRight } from "@/components/icons";
+import { IconChevronRight, IconPlus, IconRefresh } from "@/components/icons";
 import type { Manga } from "@/lib/api";
+import { AddProviderDialog } from "./add-provider-dialog";
 import type { ChapterRange } from "./manga.util";
 import { formatEnumLabel, providerColor } from "./manga.util";
-import { useMangaProviders } from "./scanProvider.queries";
+import {
+	useMangaProviders,
+	useSyncMangaChapters,
+} from "./scanProvider.queries";
+import { missingProviders } from "./scanProvider.util";
 
 const PER_PAGE = 12;
 
@@ -18,6 +23,9 @@ export function ChapterList({ manga, range }: ChapterListProps) {
 	const [activeProvider, setActiveProvider] = useState<string>();
 	const [order, setOrder] = useState<"desc" | "asc">("desc");
 	const [page, setPage] = useState(0);
+	const [addProviderOpen, setAddProviderOpen] = useState(false);
+	const missing = useMemo(() => missingProviders(providers), [providers]);
+	const syncMutation = useSyncMangaChapters(manga.mangaId);
 
 	const providerId = activeProvider ?? providers[0]?.provider;
 	const chapters = useMemo(
@@ -47,8 +55,28 @@ export function ChapterList({ manga, range }: ChapterListProps) {
 
 	if (!providerId) {
 		return (
-			<div className="py-16 text-center font-mono text-[12px] text-(--ink-muted)">
-				no chapters found for this manga yet
+			<div>
+				{missing.length > 0 && (
+					<div className="mb-5 flex justify-end border-b border-(--line) pb-2.5">
+						<button
+							type="button"
+							onClick={() => setAddProviderOpen(true)}
+							aria-label="Add provider"
+							className="grid size-8 shrink-0 place-items-center rounded-md border border-(--line) text-(--ink-muted) hover:border-(--line-strong) hover:text-(--ink)"
+						>
+							<IconPlus />
+						</button>
+					</div>
+				)}
+				<div className="py-16 text-center font-mono text-[12px] text-(--ink-muted)">
+					no chapters found for this manga yet
+				</div>
+				<AddProviderDialog
+					manga={manga}
+					linkedProviders={providers}
+					open={addProviderOpen}
+					onOpenChange={setAddProviderOpen}
+				/>
 			</div>
 		);
 	}
@@ -56,37 +84,84 @@ export function ChapterList({ manga, range }: ChapterListProps) {
 	return (
 		<div>
 			{providers.length > 0 && (
-				<div className="mb-5 flex border-b border-(--line)">
-					{providers.map((provider) => (
+				<div className="mb-5 flex items-stretch border-b border-(--line)">
+					<div className="flex flex-1">
+						{providers.map((provider) => {
+							const isActive = providerId === provider.provider;
+							const isRefreshing =
+								syncMutation.isPending &&
+								syncMutation.variables?.provider === provider.provider;
+							return (
+								<div
+									key={provider.provider}
+									className={`-mb-px flex items-center border-b-2 ${
+										isActive ? "border-(--brand)" : "border-transparent"
+									}`}
+								>
+									<button
+										type="button"
+										onClick={() => {
+											setActiveProvider(provider.provider);
+											setPage(0);
+										}}
+										className={`flex items-center gap-2.5 px-4.5 py-3 text-[13px] font-medium ${
+											isActive
+												? "text-(--ink)"
+												: "text-(--ink-muted) hover:text-(--ink)"
+										}`}
+									>
+										<span
+											className="size-1.5 rounded-full"
+											style={{ background: providerColor(provider.provider) }}
+										/>
+										{formatEnumLabel(provider.provider)}
+										<span
+											className={`rounded-[4px] px-1.5 py-0.5 font-mono text-[10.5px] ${
+												isActive
+													? "bg-(--brand-soft) text-(--brand)"
+													: "bg-(--bg-elev-2) text-(--ink-muted)"
+											}`}
+										>
+											{provider.chapters.length} ch
+										</span>
+									</button>
+									{provider.tag && (
+										<button
+											type="button"
+											aria-label={`Refresh ${formatEnumLabel(provider.provider)}`}
+											disabled={isRefreshing}
+											onClick={() => {
+												const tag = provider.tag;
+												if (!tag) {
+													return;
+												}
+												syncMutation.mutate({
+													provider: provider.provider,
+													slug: tag,
+													label: `${formatEnumLabel(provider.provider)} · refresh`,
+												});
+											}}
+											className="mr-2 grid size-6 shrink-0 place-items-center rounded-md text-(--ink-muted) hover:text-(--ink) disabled:opacity-50"
+										>
+											<IconRefresh
+												className={`size-3.5 ${isRefreshing ? "animate-spin" : ""}`}
+											/>
+										</button>
+									)}
+								</div>
+							);
+						})}
+					</div>
+					{missing.length > 0 && (
 						<button
-							key={provider.provider}
 							type="button"
-							onClick={() => {
-								setActiveProvider(provider.provider);
-								setPage(0);
-							}}
-							className={`-mb-px flex items-center gap-2.5 border-b-2 px-4.5 py-3 text-[13px] font-medium ${
-								providerId === provider.provider
-									? "border-(--brand) text-(--ink)"
-									: "border-transparent text-(--ink-muted) hover:text-(--ink)"
-							}`}
+							onClick={() => setAddProviderOpen(true)}
+							aria-label="Add provider"
+							className="my-auto mr-1 grid size-8 shrink-0 place-items-center rounded-md border border-(--line) text-(--ink-muted) hover:border-(--line-strong) hover:text-(--ink)"
 						>
-							<span
-								className="size-1.5 rounded-full"
-								style={{ background: providerColor(provider.provider) }}
-							/>
-							{formatEnumLabel(provider.provider)}
-							<span
-								className={`rounded-[4px] px-1.5 py-0.5 font-mono text-[10.5px] ${
-									providerId === provider.provider
-										? "bg-(--brand-soft) text-(--brand)"
-										: "bg-(--bg-elev-2) text-(--ink-muted)"
-								}`}
-							>
-								{provider.chapters.length} ch
-							</span>
+							<IconPlus />
 						</button>
-					))}
+					)}
 				</div>
 			)}
 
@@ -181,6 +256,13 @@ export function ChapterList({ manga, range }: ChapterListProps) {
 					</button>
 				</div>
 			)}
+
+			<AddProviderDialog
+				manga={manga}
+				linkedProviders={providers}
+				open={addProviderOpen}
+				onOpenChange={setAddProviderOpen}
+			/>
 		</div>
 	);
 }
