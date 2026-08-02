@@ -6,7 +6,7 @@ import { IconArrowLeft } from "@/components/icons";
 import { AniListId, ApiError } from "@/lib/api";
 import { useManga } from "@/manga/manga.queries";
 import { displayTitle } from "@/manga/manga.util";
-import { MangaHero } from "@/manga/manga-hero";
+import { MangaDetailBody } from "@/manga/manga-detail-body";
 
 export const Route = createFileRoute("/manga/$mangaId")({
 	beforeLoad: async ({ context }) => {
@@ -77,7 +77,7 @@ function MangaDetail({ mangaId }: { mangaId: AniListId }) {
 					</div>
 				)}
 
-				{manga && <MangaHero manga={manga} />}
+				{manga && <MangaDetailBody manga={manga} />}
 			</main>
 		</div>
 	);

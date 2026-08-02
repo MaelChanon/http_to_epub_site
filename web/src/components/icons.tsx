@@ -66,3 +66,45 @@ export function IconRefresh(props: IconProps) {
 		</svg>
 	);
 }
+
+export function IconChevronRight(props: IconProps) {
+	return (
+		<svg aria-hidden="true" {...base} {...props}>
+			<polyline points="9 6 15 12 9 18" />
+		</svg>
+	);
+}
+
+export function IconUpload(props: IconProps) {
+	return (
+		<svg aria-hidden="true" {...base} {...props}>
+			<path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4" />
+			<polyline points="17 8 12 3 7 8" />
+			<line x1="12" y1="3" x2="12" y2="15" />
+		</svg>
+	);
+}
+
+export function IconBolt(props: IconProps) {
+	return (
+		<svg aria-hidden="true" {...base} {...props}>
+			<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
+		</svg>
+	);
+}
+
+export function IconClose(props: IconProps) {
+	return (
+		<svg
+			aria-hidden="true"
+			{...base}
+			width={14}
+			height={14}
+			strokeWidth={2}
+			{...props}
+		>
+			<line x1="18" y1="6" x2="6" y2="18" />
+			<line x1="6" y1="6" x2="18" y2="18" />
+		</svg>
+	);
+}

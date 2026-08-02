@@ -3,12 +3,18 @@ import type {
 	CreateUserPayload,
 	LoginPayload,
 	Manga,
+	MangaProviderChapters,
 	User,
 } from "@workspace/api";
 import { type AniListId, Api } from "@workspace/api";
 import { Effect, Layer } from "effect";
 
-export type { Manga, User } from "@workspace/api";
+export type {
+	Manga,
+	MangaProviderChapters,
+	MangaProviderName,
+	User,
+} from "@workspace/api";
 export { AniListId } from "@workspace/api";
 
 export class ApiError extends Error {}
@@ -58,6 +64,16 @@ export function refreshManga(mangaId: AniListId): Promise<Manga> {
 	return Effect.runPromise(
 		client.manga
 			.refreshManga({ path: { mangaId } })
+			.pipe(Effect.catchAll(toApiError)),
+	);
+}
+
+export function getMangaProviders(
+	mangaId: AniListId,
+): Promise<readonly MangaProviderChapters[]> {
+	return Effect.runPromise(
+		client.scanProvider
+			.getMangaProviders({ path: { mangaId } })
 			.pipe(Effect.catchAll(toApiError)),
 	);
 }

@@ -1,5 +1,10 @@
 import type { Manga } from "@/lib/api";
 
+export interface ChapterRange {
+	start: number;
+	end: number;
+}
+
 export function displayTitle(manga: Manga) {
 	return manga.titleRomaji ?? manga.titleEnglish ?? manga.titleNative;
 }
@@ -16,10 +21,18 @@ export function formatEnumLabel(value: string) {
 		.join(" ");
 }
 
-export function coverHue(seed: string) {
+export function hashSeed(seed: string) {
 	let hash = 0;
 	for (let i = 0; i < seed.length; i++) {
 		hash = (hash * 31 + seed.charCodeAt(i)) >>> 0;
 	}
-	return hash % 360;
+	return hash;
+}
+
+export function coverHue(seed: string) {
+	return hashSeed(seed) % 360;
+}
+
+export function providerColor(provider: string) {
+	return `oklch(0.7 0.15 ${coverHue(provider)})`;
 }
