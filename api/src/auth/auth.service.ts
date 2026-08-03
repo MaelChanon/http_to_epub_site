@@ -1,6 +1,5 @@
 import { Effect } from "effect";
 import { UserService } from "../domain/user/user.service.js";
-import { UnauthorizedError } from "../http/error.js";
 import {
 	InvalidSession,
 	MissingSession,
@@ -27,11 +26,7 @@ export class AuthService extends Effect.Service<AuthService>()(
 								() => new InvalidSession({ reason: "user not found" }),
 							),
 						);
-				}).pipe(
-					Effect.mapError(
-						() => new UnauthorizedError({ message: "Invalid session" }),
-					),
-				);
+				});
 			}
 
 			return { authenticate } as const;

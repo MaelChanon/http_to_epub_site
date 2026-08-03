@@ -2,8 +2,8 @@ import { HttpApiBuilder } from "@effect/platform";
 import { Effect } from "effect";
 import { Api } from "../../http/api.js";
 import { toHttpError } from "../../http/error.js";
+import { MangaProviderService } from "../mangaProvider/mangaProvider.service.js";
 import { MangaService } from "./manga.service.js";
-import { MangaProviderService } from "./mangaProvider.service.js";
 
 export const MangaApiGroupLive = HttpApiBuilder.group(
 	Api,

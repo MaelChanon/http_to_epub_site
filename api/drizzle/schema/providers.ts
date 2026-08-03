@@ -29,7 +29,7 @@ export const mangaProviders = pgTable(
 		providerId: uuid("provider_id")
 			.notNull()
 			.references(() => providers.id, { onDelete: "cascade" }),
-		tag: text("tag"),
+		tag: text("tag").notNull(),
 	},
 	(table) => [primaryKey({ columns: [table.mangaId, table.providerId] })],
 );

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import type { Manga } from "@/lib/api";
 import { ChapterList } from "./chapter-list";
 import { GenerateEpubPanel } from "./generate-epub-panel";
@@ -19,12 +19,13 @@ export function MangaDetailBody({ manga }: { manga: Manga }) {
 	);
 	const [range, setRange] = useState<ChapterRange>({
 		start: 1,
-		end: totalChapters,
+		end: totalChapters || 1,
 	});
-
-	useEffect(() => {
+	const [prevTotalChapters, setPrevTotalChapters] = useState(totalChapters);
+	if (totalChapters !== prevTotalChapters) {
+		setPrevTotalChapters(totalChapters);
 		setRange({ start: 1, end: totalChapters || 1 });
-	}, [totalChapters]);
+	}
 
 	return (
 		<>

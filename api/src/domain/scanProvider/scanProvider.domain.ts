@@ -29,7 +29,7 @@ export class MangaProviderChapters extends Schema.Class<MangaProviderChapters>(
 )({
 	provider: MangaProviderName,
 	chapters: Schema.Array(ChapterSummary),
-	tag: Schema.NullOr(Schema.NonEmptyTrimmedString),
+	tag: Schema.NonEmptyTrimmedString,
 }) {}
 
 export class ChapterPages extends Schema.Class<ChapterPages>("ChapterPages")({

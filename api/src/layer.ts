@@ -2,7 +2,7 @@ import { Layer } from "effect";
 import { DBLayer } from "../drizzle/db.js";
 import { AuthService } from "./auth/auth.service.js";
 import { MangaService } from "./domain/manga/manga.service.js";
-import { MangaProviderService } from "./domain/manga/mangaProvider.service.js";
+import { MangaProviderService } from "./domain/mangaProvider/mangaProvider.service.js";
 import { S3Service } from "./domain/s3/s3.service.js";
 import { ProviderRepository } from "./domain/scanProvider/provider.repository.js";
 import { ProviderCatalogService } from "./domain/scanProvider/providerCatalog.service.js";

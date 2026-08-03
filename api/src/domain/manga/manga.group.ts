@@ -1,7 +1,8 @@
 import { HttpApiEndpoint, HttpApiGroup } from "@effect/platform";
 import { Schema } from "effect";
 import { Authentication } from "../../auth/auth.middleware.js";
-import { AniListIdFromString, Manga } from "./manga.domain.js";
+import { AniListIdFromString } from "../mangaProvider/mangaProvider.domain.js";
+import { Manga } from "./manga.domain.js";
 
 const MangaPath = Schema.Struct({ mangaId: AniListIdFromString });
 

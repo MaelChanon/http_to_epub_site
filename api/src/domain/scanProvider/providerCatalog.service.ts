@@ -50,7 +50,6 @@ export class ProviderCatalogService extends Effect.Service<ProviderCatalogServic
 				});
 			}
 
-			// Lecture pure — ne crée jamais de ligne `providers` juste pour une recherche.
 			function search(provider: MangaProviderName, query: string, limit = 50) {
 				return Effect.gen(function* () {
 					const providerIdOpt =

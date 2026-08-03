@@ -1,7 +1,7 @@
 import { HttpApiEndpoint, HttpApiGroup } from "@effect/platform";
 import { Schema } from "effect";
 import { Authentication } from "../../auth/auth.middleware.js";
-import { AniListIdFromString } from "../manga/manga.domain.js";
+import { AniListIdFromString } from "../mangaProvider/mangaProvider.domain.js";
 import {
 	ChapterPages,
 	ChapterSummary,

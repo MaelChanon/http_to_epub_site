@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { IconArrowLeft } from "@/components/icons";
 import type { Manga, MangaProviderName } from "@/lib/api";
 import { useSequentialPreload } from "./chapter-preload";
@@ -29,16 +29,16 @@ export function ChapterReader({
 		() => providers.find((p) => p.provider === provider)?.chapters ?? [],
 		[providers, provider],
 	);
-	const sortedNumbers = useMemo(
-		() => chapters.map((c) => c.number).sort((a, b) => a - b),
+	const chapterNumbers = useMemo(
+		() => chapters.map((c) => c.number),
 		[chapters],
 	);
-	const currentChapterIdx = sortedNumbers.indexOf(chapterNumber);
+	const currentChapterIdx = chapterNumbers.indexOf(chapterNumber);
 	const prevChapterNumber =
-		currentChapterIdx > 0 ? sortedNumbers[currentChapterIdx - 1] : undefined;
+		currentChapterIdx > 0 ? chapterNumbers[currentChapterIdx - 1] : undefined;
 	const nextChapterNumber =
-		currentChapterIdx >= 0 && currentChapterIdx < sortedNumbers.length - 1
-			? sortedNumbers[currentChapterIdx + 1]
+		currentChapterIdx >= 0 && currentChapterIdx < chapterNumbers.length - 1
+			? chapterNumbers[currentChapterIdx + 1]
 			: undefined;
 
 	const { data: chapterPages, isPending } = useChapterPages(
@@ -52,42 +52,37 @@ export function ChapterReader({
 	const [pageIndex, setPageIndex] = useState(0);
 	const [mode, setMode] = useState<ReaderMode>("paged");
 	const pageRefs = useRef<(HTMLDivElement | null)[]>([]);
+	const scrollObserverRef = useRef<IntersectionObserver | null>(null);
+	const pendingScrollRef = useRef(false);
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: only jump on mode change, not on every pageIndex update from scrolling
-	useEffect(() => {
-		if (mode === "scroll") {
-			pageRefs.current[pageIndex]?.scrollIntoView({ block: "start" });
+	function getScrollObserver() {
+		if (!scrollObserverRef.current) {
+			scrollObserverRef.current = new IntersectionObserver(
+				(entries) => {
+					const visible = entries.filter((entry) => entry.isIntersecting);
+					if (visible.length === 0) {
+						return;
+					}
+					const topMost = visible.reduce((a, b) =>
+						a.boundingClientRect.top < b.boundingClientRect.top ? a : b,
+					);
+					const index = Number(
+						(topMost.target as HTMLElement).dataset.pageIndex,
+					);
+					if (!Number.isNaN(index)) {
+						setPageIndex(index);
+					}
+				},
+				{ rootMargin: "-45% 0px -45% 0px", threshold: 0 },
+			);
 		}
-	}, [mode]);
+		return scrollObserverRef.current;
+	}
 
-	// biome-ignore lint/correctness/useExhaustiveDependencies: must re-observe as new page elements mount while loadedCount grows
-	useEffect(() => {
-		if (mode !== "scroll") {
-			return;
-		}
-		const observer = new IntersectionObserver(
-			(entries) => {
-				const visible = entries.filter((entry) => entry.isIntersecting);
-				if (visible.length === 0) {
-					return;
-				}
-				const topMost = visible.reduce((a, b) =>
-					a.boundingClientRect.top < b.boundingClientRect.top ? a : b,
-				);
-				const index = Number((topMost.target as HTMLElement).dataset.pageIndex);
-				if (!Number.isNaN(index)) {
-					setPageIndex(index);
-				}
-			},
-			{ rootMargin: "-45% 0px -45% 0px", threshold: 0 },
-		);
-		for (const el of pageRefs.current) {
-			if (el) {
-				observer.observe(el);
-			}
-		}
-		return () => observer.disconnect();
-	}, [mode, loadedCount]);
+	function enterScrollMode() {
+		pendingScrollRef.current = true;
+		setMode("scroll");
+	}
 
 	function selectPage(index: number) {
 		if (mode === "scroll") {
@@ -174,7 +169,7 @@ export function ChapterReader({
 						</button>
 						<button
 							type="button"
-							onClick={() => setMode("scroll")}
+							onClick={enterScrollMode}
 							className={`rounded-md px-2 py-1 ${mode === "scroll" ? "bg-(--bg-elev-2) text-(--ink)" : "text-(--ink-muted) hover:text-(--ink)"}`}
 						>
 							scroll
@@ -231,6 +226,16 @@ export function ChapterReader({
 							key={src}
 							ref={(el) => {
 								pageRefs.current[i] = el;
+								if (!el) {
+									return;
+								}
+								const observer = getScrollObserver();
+								observer.observe(el);
+								if (pendingScrollRef.current && i === pageIndex) {
+									pendingScrollRef.current = false;
+									el.scrollIntoView({ block: "start" });
+								}
+								return () => observer.unobserve(el);
 							}}
 							data-page-index={i}
 							className="w-full max-w-3xl"

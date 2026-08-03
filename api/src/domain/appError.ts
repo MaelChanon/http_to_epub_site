@@ -6,12 +6,12 @@ import type {
 	SessionStoreError,
 } from "../session/session.service.js";
 import type { MangaNotFound } from "./manga/manga.service.js";
+import type { MangaFetcherFetchFailed } from "./mangaFetcher/mangaFetcher.service.js";
 import type {
 	MangaNotFoundInProvider,
 	MangaProviderRequestFailed,
 	MangaProviderResponseInvalid,
-} from "./manga/mangaProvider.service.js";
-import type { MangaFetcherFetchFailed } from "./mangaFetcher/mangaFetcher.service.js";
+} from "./mangaProvider/mangaProvider.service.js";
 import type {
 	ImageFetchFailed,
 	S3Error,

@@ -46,4 +46,4 @@ very end.
 - `InvalidSession`, `MissingSession` (`session/session.service.ts`)
 - `S3ObjectNotFound`, `S3Error` (`s3/s3.service.ts`)
 - `MangaNotFoundInProvider`, `MangaProviderRequestFailed`,
-  `MangaProviderResponseInvalid` (`manga/mangaProvider.service.ts`)
+  `MangaProviderResponseInvalid` (`mangaProvider/mangaProvider.service.ts`)

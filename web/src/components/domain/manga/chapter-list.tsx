@@ -125,29 +125,23 @@ export function ChapterList({ manga, range }: ChapterListProps) {
 											{provider.chapters.length} ch
 										</span>
 									</button>
-									{provider.tag && (
-										<button
-											type="button"
-											aria-label={`Refresh ${formatEnumLabel(provider.provider)}`}
-											disabled={isRefreshing}
-											onClick={() => {
-												const tag = provider.tag;
-												if (!tag) {
-													return;
-												}
-												syncMutation.mutate({
-													provider: provider.provider,
-													slug: tag,
-													label: `${formatEnumLabel(provider.provider)} · refresh`,
-												});
-											}}
-											className="mr-2 grid size-6 shrink-0 place-items-center rounded-md text-(--ink-muted) hover:text-(--ink) disabled:opacity-50"
-										>
-											<IconRefresh
-												className={`size-3.5 ${isRefreshing ? "animate-spin" : ""}`}
-											/>
-										</button>
-									)}
+									<button
+										type="button"
+										aria-label={`Refresh ${formatEnumLabel(provider.provider)}`}
+										disabled={isRefreshing}
+										onClick={() => {
+											syncMutation.mutate({
+												provider: provider.provider,
+												slug: provider.tag,
+												label: `${formatEnumLabel(provider.provider)} · refresh`,
+											});
+										}}
+										className="mr-2 grid size-6 shrink-0 place-items-center rounded-md text-(--ink-muted) hover:text-(--ink) disabled:opacity-50"
+									>
+										<IconRefresh
+											className={`size-3.5 ${isRefreshing ? "animate-spin" : ""}`}
+										/>
+									</button>
 								</div>
 							);
 						})}

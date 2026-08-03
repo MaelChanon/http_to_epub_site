@@ -175,11 +175,16 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 				);
 			}
 
-			function toChapterSummary(row: {
-				readonly number: number;
-				readonly createdAt: Date;
-				readonly pages: readonly unknown[];
-			}) {
+			type ChapterRow = NonNullable<
+				Effect.Effect.Success<
+					ReturnType<
+						typeof db.query.chapters.findFirst<{
+							with: { pages: true };
+						}>
+					>
+				>
+			>;
+			function toChapterSummary(row: ChapterRow) {
 				return new ChapterSummary({
 					number: row.number,
 					pageCount: row.pages.length,
@@ -224,7 +229,7 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 							.pipe(Effect.mapError(toSQLError)),
 					]);
 
-					const tagByProvider = new Map<MangaProvider, string | null>();
+					const tagByProvider = new Map<MangaProvider, string>();
 					for (const link of links) {
 						tagByProvider.set(link.provider.name, link.tag);
 					}
@@ -243,7 +248,7 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 							new MangaProviderChapters({
 								provider,
 								chapters,
-								tag: tagByProvider.get(provider) ?? null,
+								tag: tagByProvider.get(provider) ?? "none",
 							}),
 					);
 				});

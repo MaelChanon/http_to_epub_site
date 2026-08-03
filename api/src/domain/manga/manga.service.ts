@@ -11,14 +11,13 @@ import {
 	SQLError,
 	toSQLError,
 } from "../../../drizzle/schema/utils.js";
-import { S3Service } from "../s3/s3.service.js";
 import {
 	AniListId,
-	Manga,
-	MangaDbId,
 	type MangaProviderData,
 	MangaStaff,
-} from "./manga.domain.js";
+} from "../mangaProvider/mangaProvider.domain.js";
+import { S3Service } from "../s3/s3.service.js";
+import { Manga, MangaDbId } from "./manga.domain.js";
 
 export class MangaNotFound extends Data.TaggedError("MangaNotFound")<{
 	readonly mangaId: AniListId;

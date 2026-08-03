@@ -15,7 +15,7 @@ import {
 	MangaProviderData,
 	MangaStaff,
 	type MangaStatus,
-} from "./manga.domain.js";
+} from "./mangaProvider.domain.js";
 import {
 	type AniListMedia,
 	AniListMediaResponse,
