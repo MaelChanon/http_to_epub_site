@@ -59,6 +59,7 @@ export const toHttpError = (
 					"EncryptionFailed",
 					"SessionStoreError",
 					"S3Error",
+					"ArchiveError",
 					"MangaProviderRequestFailed",
 					"MangaProviderResponseInvalid",
 					"ImageFetchFailed",

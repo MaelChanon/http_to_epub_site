@@ -17,6 +17,7 @@ export {
 	ChapterSummary,
 	MangaProviderChapters,
 	MangaProviderName,
+	ProviderArchive,
 	ProviderMangaSummary,
 } from "../domain/scanProvider/scanProvider.domain.js";
 export {

@@ -1,8 +1,9 @@
-import { sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { Data, Effect, Option } from "effect";
 import { DB, DBLayer } from "../../../drizzle/db.js";
 import { chapters, pages } from "../../../drizzle/schema/providers.js";
 import { SQLError, toSQLError } from "../../../drizzle/schema/utils.js";
+import { ArchiveService } from "../archive/archive.service.js";
 import type { MangaDbId } from "../manga/manga.domain.js";
 import {
 	MangaFetcherService,
@@ -14,6 +15,7 @@ import {
 	ChapterPages,
 	ChapterSummary,
 	MangaProviderChapters,
+	ProviderArchive,
 } from "./scanProvider.domain.js";
 
 export class MangaNotFoundById extends Data.TaggedError("MangaNotFoundById")<{
@@ -51,6 +53,7 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 		effect: Effect.gen(function* () {
 			const db = yield* DB;
 			const s3 = yield* S3Service;
+			const archive = yield* ArchiveService;
 			const mangaFetcher = yield* MangaFetcherService;
 			const providerRepo = yield* ProviderRepository;
 
@@ -254,6 +257,38 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 				});
 			}
 
+			function deleteMangaProviderChapters(
+				mangaDbId: MangaDbId,
+				provider: MangaProvider,
+			) {
+				return Effect.gen(function* () {
+					const providerId = yield* resolveProviderId(mangaDbId, provider);
+
+					const rows = yield* db.query.chapters
+						.findMany({
+							where: { mangaId: mangaDbId, providerId },
+							with: { pages: true },
+						})
+						.pipe(Effect.mapError(toSQLError));
+
+					const paths = rows.flatMap((row) =>
+						row.pages.map((page) => page.path),
+					);
+
+					yield* s3.deleteObjects(paths);
+
+					yield* db
+						.delete(chapters)
+						.where(
+							and(
+								eq(chapters.mangaId, mangaDbId),
+								eq(chapters.providerId, providerId),
+							),
+						)
+						.pipe(Effect.mapError(toSQLError));
+				});
+			}
+
 			function getChapterPages(
 				mangaDbId: MangaDbId,
 				provider: MangaProvider,
@@ -311,16 +346,65 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 				});
 			}
 
+			function buildProviderArchive(
+				mangaDbId: MangaDbId,
+				provider: MangaProvider,
+			) {
+				return Effect.gen(function* () {
+					const providerId = yield* resolveProviderId(mangaDbId, provider);
+
+					const rows = yield* db.query.chapters
+						.findMany({
+							where: { mangaId: mangaDbId, providerId },
+							with: { pages: true },
+							orderBy: { number: "asc" },
+						})
+						.pipe(Effect.mapError(toSQLError));
+
+					const pageEntries = rows.flatMap((chapter) =>
+						chapter.pages
+							.slice()
+							.sort((a, b) => a.number - b.number)
+							.map((page) => {
+								const ext = page.path.split(".").pop() || "jpg";
+								const folder = `Chapter ${String(chapter.number).padStart(3, "0")}`;
+								const fileName = `${String(page.number).padStart(3, "0")}.${ext}`;
+								return { path: page.path, entryName: `${folder}/${fileName}` };
+							}),
+					);
+
+					const entries = yield* Effect.forEach(
+						pageEntries,
+						({ path, entryName }) =>
+							s3
+								.download(path)
+								.pipe(Effect.map((data) => ({ entryName, data }))),
+						{ concurrency: 5 },
+					);
+
+					const zip = yield* archive.buildZip(entries);
+
+					const key = `${mangaDbId}/archives/${provider}.zip`;
+					yield* s3.upload(key, zip, "application/zip");
+					const url = yield* s3.getUrl(key);
+
+					return new ProviderArchive({ url });
+				});
+			}
+
 			return {
 				syncMangaChapters,
 				listChapterNumbers,
 				listMangaProviders,
 				getChapterPages,
+				deleteMangaProviderChapters,
+				buildProviderArchive,
 			} as const;
 		}),
 		dependencies: [
 			DBLayer,
 			S3Service.Default,
+			ArchiveService.Default,
 			MangaFetcherService.Default,
 			ProviderRepository.Default,
 		],

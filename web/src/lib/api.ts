@@ -6,6 +6,7 @@ import type {
 	Manga,
 	MangaProviderChapters,
 	MangaProviderName,
+	ProviderArchive,
 	ProviderMangaSummary,
 	User,
 } from "@workspace/api";
@@ -16,6 +17,7 @@ export type {
 	ChapterPages,
 	Manga,
 	MangaProviderChapters,
+	ProviderArchive,
 	ProviderMangaSummary,
 	User,
 } from "@workspace/api";
@@ -101,6 +103,28 @@ export function syncMangaChapters(
 	return Effect.runPromise(
 		client.scanProvider
 			.syncMangaChapters({ path: { mangaId }, payload })
+			.pipe(Effect.catchAll(toApiError)),
+	);
+}
+
+export function deleteMangaProviderChapters(
+	mangaId: AniListId,
+	provider: MangaProviderName,
+): Promise<void> {
+	return Effect.runPromise(
+		client.scanProvider
+			.deleteMangaProviderChapters({ path: { mangaId, provider } })
+			.pipe(Effect.catchAll(toApiError)),
+	);
+}
+
+export function buildProviderArchive(
+	mangaId: AniListId,
+	provider: MangaProviderName,
+): Promise<ProviderArchive> {
+	return Effect.runPromise(
+		client.scanProvider
+			.buildMangaProviderArchive({ path: { mangaId, provider } })
 			.pipe(Effect.catchAll(toApiError)),
 	);
 }

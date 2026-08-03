@@ -6,6 +6,8 @@ import {
 } from "@tanstack/react-query";
 import type { AniListId, MangaProviderName } from "@/lib/api";
 import {
+	buildProviderArchive,
+	deleteMangaProviderChapters,
 	getChapterPages,
 	getMangaProviders,
 	searchProviderCatalog,
@@ -75,6 +77,38 @@ export function useSyncMangaChapters(mangaId: AniListId) {
 			queryClient.invalidateQueries({
 				queryKey: scanProviderKeys.mangaProviders(mangaId),
 			});
+		},
+	});
+}
+
+export function useDeleteMangaProviderChapters(mangaId: AniListId) {
+	const queryClient = useQueryClient();
+
+	return useMutation({
+		mutationFn: (provider: MangaProviderName) =>
+			deleteMangaProviderChapters(mangaId, provider),
+		onSuccess: () => {
+			queryClient.invalidateQueries({
+				queryKey: scanProviderKeys.mangaProviders(mangaId),
+			});
+		},
+	});
+}
+
+export function useDownloadProviderArchive(mangaId: AniListId) {
+	return useMutation({
+		mutationFn: ({
+			provider,
+			label,
+		}: {
+			provider: MangaProviderName;
+			label: string;
+		}) => runTrackedTask(label, buildProviderArchive(mangaId, provider)),
+		onSuccess: ({ url }) => {
+			const link = document.createElement("a");
+			link.href = url;
+			link.download = "";
+			link.click();
 		},
 	});
 }

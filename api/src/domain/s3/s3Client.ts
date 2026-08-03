@@ -1,4 +1,7 @@
+import * as http from "node:http";
+import * as https from "node:https";
 import { S3Client as S3ClientSdk } from "@aws-sdk/client-s3";
+import { NodeHttpHandler } from "@smithy/node-http-handler";
 import * as Context from "effect/Context";
 import * as Effect from "effect/Effect";
 import * as Layer from "effect/Layer";
@@ -22,6 +25,10 @@ const s3ClientEffect = Effect.gen(function* () {
 						accessKeyId: config.s3AccessKeyId,
 						secretAccessKey: config.s3SecretAccessKey,
 					},
+					requestHandler: new NodeHttpHandler({
+						httpAgent: new http.Agent({ keepAlive: false }),
+						httpsAgent: new https.Agent({ keepAlive: false }),
+					}),
 				}),
 		),
 		(client) => Effect.sync(() => client.destroy()),

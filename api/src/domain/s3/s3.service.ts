@@ -1,4 +1,5 @@
 import {
+	DeleteObjectsCommand,
 	GetObjectCommand,
 	ListObjectsV2Command,
 	NoSuchKey,
@@ -40,7 +41,7 @@ export class ImageFetchFailed extends Data.TaggedError("ImageFetchFailed")<{
 	}
 }
 
-const uploadRetrySchedule = Schedule.exponential("200 millis").pipe(
+const s3RetrySchedule = Schedule.exponential("200 millis").pipe(
 	Schedule.intersect(Schedule.recurs(4)),
 );
 
@@ -93,7 +94,7 @@ export class S3Service extends Effect.Service<S3Service>()("api/S3Service", {
 					catch: (e) =>
 						e instanceof NoSuchKey
 							? new S3ObjectNotFound({ key })
-							: toS3Error("download")(e),
+							: toS3Error(`download ${key}`)(e),
 				});
 
 				const body = response.Body;
@@ -103,9 +104,14 @@ export class S3Service extends Effect.Service<S3Service>()("api/S3Service", {
 
 				return yield* Effect.tryPromise({
 					try: () => body.transformToByteArray(),
-					catch: toS3Error("download"),
+					catch: toS3Error(`download ${key}`),
 				});
-			});
+			}).pipe(
+				Effect.retry({
+					schedule: s3RetrySchedule,
+					while: (error) => error._tag === "S3Error",
+				}),
+			);
 		}
 
 		function list(prefix = "") {
@@ -133,6 +139,52 @@ export class S3Service extends Effect.Service<S3Service>()("api/S3Service", {
 			});
 		}
 
+		function deleteObjects(keys: readonly string[]) {
+			if (keys.length === 0) {
+				return Effect.void;
+			}
+
+			const chunks: (readonly string[])[] = [];
+			for (let i = 0; i < keys.length; i += 1000) {
+				chunks.push(keys.slice(i, i + 1000));
+			}
+
+			return Effect.forEach(
+				chunks,
+				(chunk) =>
+					Effect.tryPromise({
+						try: () =>
+							client.send(
+								new DeleteObjectsCommand({
+									Bucket: config.s3Bucket,
+									Delete: { Objects: chunk.map((Key) => ({ Key })) },
+								}),
+							),
+						catch: toS3Error("deleteObjects"),
+					}),
+				{ concurrency: 1 },
+			).pipe(Effect.asVoid);
+		}
+
+		function uploadAndVerify(
+			key: string,
+			body: Uint8Array,
+			contentType?: string,
+		) {
+			return Effect.gen(function* () {
+				yield* upload(key, body, contentType);
+				const stored = yield* download(key);
+				if (!Buffer.from(stored).equals(Buffer.from(body))) {
+					return yield* Effect.fail(
+						new S3Error({
+							operation: `verify ${key}`,
+							message: "uploaded object does not match the source bytes",
+						}),
+					);
+				}
+			});
+		}
+
 		function fetchAndUpload(key: string, url: string) {
 			return Effect.gen(function* () {
 				const response = yield* httpClient.get(url).pipe(
@@ -148,15 +200,22 @@ export class S3Service extends Effect.Service<S3Service>()("api/S3Service", {
 					),
 				);
 
-				yield* upload(
+				yield* uploadAndVerify(
 					key,
 					new Uint8Array(bytes),
 					response.headers["content-type"],
-				).pipe(Effect.retry(uploadRetrySchedule));
+				).pipe(Effect.retry(s3RetrySchedule));
 			});
 		}
 
-		return { upload, download, list, getUrl, fetchAndUpload } as const;
+		return {
+			upload,
+			download,
+			list,
+			getUrl,
+			fetchAndUpload,
+			deleteObjects,
+		} as const;
 	}),
 	dependencies: [S3ClientLive, FetchHttpClient.layer],
 }) {}

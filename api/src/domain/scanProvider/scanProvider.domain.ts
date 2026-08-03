@@ -36,3 +36,9 @@ export class ChapterPages extends Schema.Class<ChapterPages>("ChapterPages")({
 	pages: Schema.Array(Schema.NonEmptyTrimmedString),
 	hasNextChapter: Schema.Boolean,
 }) {}
+
+export class ProviderArchive extends Schema.Class<ProviderArchive>(
+	"ProviderArchive",
+)({
+	url: Schema.NonEmptyTrimmedString,
+}) {}

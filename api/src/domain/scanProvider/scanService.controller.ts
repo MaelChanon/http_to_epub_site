@@ -60,6 +60,25 @@ export const ScanProviderApiGroupLive = HttpApiBuilder.group(
 					providerCatalogService
 						.search(path.provider, urlParams.q)
 						.pipe(Effect.catchAll(toHttpError)),
+				)
+				.handle("deleteMangaProviderChapters", ({ path }) =>
+					mangaService.getManga(path.mangaId).pipe(
+						Effect.flatMap((manga) =>
+							scanProviderService.deleteMangaProviderChapters(
+								manga.id,
+								path.provider,
+							),
+						),
+						Effect.catchAll(toHttpError),
+					),
+				)
+				.handle("buildMangaProviderArchive", ({ path }) =>
+					mangaService.getManga(path.mangaId).pipe(
+						Effect.flatMap((manga) =>
+							scanProviderService.buildProviderArchive(manga.id, path.provider),
+						),
+						Effect.catchAll(toHttpError),
+					),
 				);
 		}),
 );

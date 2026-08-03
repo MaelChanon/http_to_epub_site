@@ -7,6 +7,7 @@ import {
 	ChapterSummary,
 	MangaProviderChapters,
 	MangaProviderName,
+	ProviderArchive,
 	ProviderMangaSummary,
 } from "./scanProvider.domain.js";
 
@@ -75,4 +76,22 @@ export class ScanProviderApiGroup extends HttpApiGroup.make("scanProvider")
 			.middleware(Authentication)
 			.setPath(ProviderPath)
 			.setUrlParams(SearchProviderCatalogParams),
+	)
+	.add(
+		HttpApiEndpoint.del(
+			"deleteMangaProviderChapters",
+			"/scan/:mangaId/providers/:provider/chapters",
+		)
+			.addSuccess(Schema.Void)
+			.middleware(Authentication)
+			.setPath(MangaProviderPath),
+	)
+	.add(
+		HttpApiEndpoint.post(
+			"buildMangaProviderArchive",
+			"/scan/:mangaId/providers/:provider/chapters/archive",
+		)
+			.addSuccess(ProviderArchive)
+			.middleware(Authentication)
+			.setPath(MangaProviderPath),
 	) {}

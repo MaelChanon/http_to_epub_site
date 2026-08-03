@@ -1,11 +1,28 @@
 import { Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
-import { IconChevronRight, IconPlus, IconRefresh } from "@/components/icons";
-import type { Manga } from "@/lib/api";
+import {
+	IconChevronRight,
+	IconClose,
+	IconDownload,
+	IconPlus,
+	IconRefresh,
+} from "@/components/icons";
+import { Button } from "@/components/ui/button";
+import {
+	Dialog,
+	DialogContent,
+	DialogDescription,
+	DialogFooter,
+	DialogHeader,
+	DialogTitle,
+} from "@/components/ui/dialog";
+import type { Manga, MangaProviderChapters } from "@/lib/api";
 import { AddProviderDialog } from "./add-provider-dialog";
 import type { ChapterRange } from "./manga.util";
 import { formatEnumLabel, providerColor } from "./manga.util";
 import {
+	useDeleteMangaProviderChapters,
+	useDownloadProviderArchive,
 	useMangaProviders,
 	useSyncMangaChapters,
 } from "./scanProvider.queries";
@@ -24,14 +41,21 @@ export function ChapterList({ manga, range }: ChapterListProps) {
 	const [order, setOrder] = useState<"desc" | "asc">("desc");
 	const [page, setPage] = useState(0);
 	const [addProviderOpen, setAddProviderOpen] = useState(false);
+	const [deleteTarget, setDeleteTarget] = useState<MangaProviderChapters>();
 	const missing = useMemo(() => missingProviders(providers), [providers]);
 	const syncMutation = useSyncMangaChapters(manga.mangaId);
+	const deleteMutation = useDeleteMangaProviderChapters(manga.mangaId);
+	const archiveMutation = useDownloadProviderArchive(manga.mangaId);
 
 	const providerId = activeProvider ?? providers[0]?.provider;
-	const chapters = useMemo(
-		() => providers.find((p) => p.provider === providerId)?.chapters ?? [],
-		[providers, providerId],
-	);
+	const activeProviderEntry = providers.find((p) => p.provider === providerId);
+	const chapters = activeProviderEntry?.chapters ?? [];
+	const isActiveRefreshing =
+		syncMutation.isPending &&
+		syncMutation.variables?.provider === activeProviderEntry?.provider;
+	const isActiveDownloading =
+		archiveMutation.isPending &&
+		archiveMutation.variables?.provider === activeProviderEntry?.provider;
 
 	const sorted = useMemo(() => {
 		const list = [...chapters];
@@ -88,9 +112,9 @@ export function ChapterList({ manga, range }: ChapterListProps) {
 					<div className="flex flex-1">
 						{providers.map((provider) => {
 							const isActive = providerId === provider.provider;
-							const isRefreshing =
-								syncMutation.isPending &&
-								syncMutation.variables?.provider === provider.provider;
+							const isDeleting =
+								deleteMutation.isPending &&
+								deleteMutation.variables === provider.provider;
 							return (
 								<div
 									key={provider.provider}
@@ -127,20 +151,12 @@ export function ChapterList({ manga, range }: ChapterListProps) {
 									</button>
 									<button
 										type="button"
-										aria-label={`Refresh ${formatEnumLabel(provider.provider)}`}
-										disabled={isRefreshing}
-										onClick={() => {
-											syncMutation.mutate({
-												provider: provider.provider,
-												slug: provider.tag,
-												label: `${formatEnumLabel(provider.provider)} · refresh`,
-											});
-										}}
-										className="mr-2 grid size-6 shrink-0 place-items-center rounded-md text-(--ink-muted) hover:text-(--ink) disabled:opacity-50"
+										aria-label={`Delete ${formatEnumLabel(provider.provider)} chapters`}
+										disabled={isDeleting}
+										onClick={() => setDeleteTarget(provider)}
+										className="mr-2 grid size-6 shrink-0 place-items-center rounded-md text-(--ink-muted) hover:text-destructive disabled:opacity-50"
 									>
-										<IconRefresh
-											className={`size-3.5 ${isRefreshing ? "animate-spin" : ""}`}
-										/>
+										<IconClose className="size-3.5" />
 									</button>
 								</div>
 							);
@@ -160,11 +176,48 @@ export function ChapterList({ manga, range }: ChapterListProps) {
 			)}
 
 			<div className="mb-2.5 flex items-center justify-between gap-4">
-				<div className="font-mono text-[11px] tracking-[0.08em] text-(--ink-muted) uppercase">
-					[chapters]{" "}
-					<b className="ml-2 font-medium text-(--ink) normal-case">
-						{chapters.length} total
-					</b>
+				<div className="flex items-center gap-1 font-mono text-[11px] tracking-[0.08em] text-(--ink-muted) uppercase">
+					<span>
+						[chapters]{" "}
+						<b className="ml-2 font-medium text-(--ink) normal-case">
+							{chapters.length} total
+						</b>
+					</span>
+					{activeProviderEntry && (
+						<>
+							<button
+								type="button"
+								aria-label={`Refresh ${formatEnumLabel(activeProviderEntry.provider)}`}
+								disabled={isActiveRefreshing}
+								onClick={() => {
+									syncMutation.mutate({
+										provider: activeProviderEntry.provider,
+										slug: activeProviderEntry.tag,
+										label: `${formatEnumLabel(activeProviderEntry.provider)} · refresh`,
+									});
+								}}
+								className="ml-1 grid size-6 shrink-0 place-items-center rounded-md text-(--ink-muted) hover:text-(--ink) disabled:opacity-50"
+							>
+								<IconRefresh
+									className={`size-3.5 ${isActiveRefreshing ? "animate-spin" : ""}`}
+								/>
+							</button>
+							<button
+								type="button"
+								aria-label={`Download ${formatEnumLabel(activeProviderEntry.provider)} archive`}
+								disabled={isActiveDownloading}
+								onClick={() => {
+									archiveMutation.mutate({
+										provider: activeProviderEntry.provider,
+										label: `${formatEnumLabel(activeProviderEntry.provider)} · archive`,
+									});
+								}}
+								className="grid size-6 shrink-0 place-items-center rounded-md text-(--ink-muted) hover:text-(--ink) disabled:opacity-50"
+							>
+								<IconDownload className="size-3.5" />
+							</button>
+						</>
+					)}
 				</div>
 				<div className="flex gap-1 font-mono text-[10.5px]">
 					<button
@@ -257,6 +310,49 @@ export function ChapterList({ manga, range }: ChapterListProps) {
 				open={addProviderOpen}
 				onOpenChange={setAddProviderOpen}
 			/>
+
+			<Dialog
+				open={!!deleteTarget}
+				onOpenChange={(open) => !open && setDeleteTarget(undefined)}
+			>
+				<DialogContent>
+					<DialogHeader>
+						<DialogTitle>
+							Delete {deleteTarget && formatEnumLabel(deleteTarget.provider)}{" "}
+							chapters?
+						</DialogTitle>
+						<DialogDescription>
+							This permanently removes {deleteTarget?.chapters.length}{" "}
+							chapter(s) and all their pages from storage. This cannot be
+							undone.
+						</DialogDescription>
+					</DialogHeader>
+					<DialogFooter>
+						<Button
+							type="button"
+							variant="outline"
+							onClick={() => setDeleteTarget(undefined)}
+						>
+							Cancel
+						</Button>
+						<Button
+							type="button"
+							variant="destructive"
+							disabled={deleteMutation.isPending}
+							onClick={() => {
+								if (!deleteTarget) {
+									return;
+								}
+								deleteMutation.mutate(deleteTarget.provider, {
+									onSuccess: () => setDeleteTarget(undefined),
+								});
+							}}
+						>
+							Delete
+						</Button>
+					</DialogFooter>
+				</DialogContent>
+			</Dialog>
 		</div>
 	);
 }

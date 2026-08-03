@@ -5,6 +5,7 @@ import type {
 	MissingSession,
 	SessionStoreError,
 } from "../session/session.service.js";
+import type { ArchiveError } from "./archive/archive.service.js";
 import type { MangaNotFound } from "./manga/manga.service.js";
 import type { MangaFetcherFetchFailed } from "./mangaFetcher/mangaFetcher.service.js";
 import type {
@@ -33,6 +34,7 @@ export type DomainError =
 	| SessionStoreError
 	| S3ObjectNotFound
 	| S3Error
+	| ArchiveError
 	| MangaNotFoundInProvider
 	| MangaProviderRequestFailed
 	| MangaProviderResponseInvalid
