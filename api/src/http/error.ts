@@ -47,6 +47,7 @@ export const toHttpError = (
 					"MangaNotFoundById",
 					"MangaProviderNotLinked",
 					"ChapterNotFound",
+					"PageNotFound",
 					() =>
 						Effect.fail(
 							new NotFoundError({

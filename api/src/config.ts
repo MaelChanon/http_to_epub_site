@@ -18,6 +18,7 @@ class AppConfig {
 		readonly s3AccessKeyId: string,
 		readonly s3SecretAccessKey: string,
 		readonly s3ForcePathStyle: boolean,
+		readonly corsAllowedOrigins: readonly string[],
 	) {}
 }
 export const appConfig = Config.map(
@@ -48,6 +49,9 @@ export const appConfig = Config.map(
 		Config.string("S3_ACCESS_KEY_ID").pipe(Config.withDefault("")),
 		Config.string("S3_SECRET_ACCESS_KEY").pipe(Config.withDefault("")),
 		Config.boolean("S3_FORCE_PATH_STYLE").pipe(Config.withDefault(true)),
+		Config.string("CORS_ALLOWED_ORIGINS").pipe(
+			Config.withDefault("http://localhost:5173"),
+		),
 	]),
 	([
 		host,
@@ -64,6 +68,7 @@ export const appConfig = Config.map(
 		s3AccessKeyId,
 		s3SecretAccessKey,
 		s3ForcePathStyle,
+		corsAllowedOrigins,
 	]) =>
 		new AppConfig(
 			host,
@@ -80,5 +85,9 @@ export const appConfig = Config.map(
 			s3AccessKeyId,
 			s3SecretAccessKey,
 			s3ForcePathStyle,
+			corsAllowedOrigins
+				.split(",")
+				.map((origin) => origin.trim())
+				.filter((origin) => origin.length > 0),
 		),
 );

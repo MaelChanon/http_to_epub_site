@@ -1,1 +1,0 @@
-ALTER TABLE "manga_providers" ALTER COLUMN "tag" SET NOT NULL;

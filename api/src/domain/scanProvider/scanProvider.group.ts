@@ -1,4 +1,4 @@
-import { HttpApiEndpoint, HttpApiGroup } from "@effect/platform";
+import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "@effect/platform";
 import { Schema } from "effect";
 import { Authentication } from "../../auth/auth.middleware.js";
 import { AniListIdFromString } from "../mangaProvider/mangaProvider.domain.js";
@@ -22,6 +22,13 @@ const MangaProviderChapterPath = Schema.Struct({
 	mangaId: AniListIdFromString,
 	provider: MangaProviderName,
 	number: Schema.compose(Schema.NumberFromString, Schema.Int),
+});
+
+const MangaProviderChapterPagePath = Schema.Struct({
+	mangaId: AniListIdFromString,
+	provider: MangaProviderName,
+	number: Schema.compose(Schema.NumberFromString, Schema.Int),
+	pageIndex: Schema.compose(Schema.NumberFromString, Schema.Int),
 });
 
 const ProviderPath = Schema.Struct({ provider: MangaProviderName });
@@ -66,6 +73,15 @@ export class ScanProviderApiGroup extends HttpApiGroup.make("scanProvider")
 			.addSuccess(ChapterPages)
 			.middleware(Authentication)
 			.setPath(MangaProviderChapterPath),
+	)
+	.add(
+		HttpApiEndpoint.get(
+			"getMangaProviderChapterPage",
+			"/scan/:mangaId/providers/:provider/chapters/:number/pages/:pageIndex",
+		)
+			.addSuccess(HttpApiSchema.Empty(302))
+			.middleware(Authentication)
+			.setPath(MangaProviderChapterPagePath),
 	)
 	.add(
 		HttpApiEndpoint.get(

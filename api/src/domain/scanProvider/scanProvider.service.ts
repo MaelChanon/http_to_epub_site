@@ -9,6 +9,7 @@ import {
 	MangaFetcherService,
 	type MangaProvider,
 } from "../mangaFetcher/mangaFetcher.service.js";
+import type { AniListId } from "../mangaProvider/mangaProvider.domain.js";
 import { S3Service } from "../s3/s3.service.js";
 import { ProviderRepository } from "./provider.repository.js";
 import {
@@ -44,6 +45,17 @@ export class ChapterNotFound extends Data.TaggedError("ChapterNotFound")<{
 }> {
 	get internalMessage() {
 		return `Chapter ${this.number} not found for manga ${this.mangaId} on provider ${this.provider}`;
+	}
+}
+
+export class PageNotFound extends Data.TaggedError("PageNotFound")<{
+	readonly mangaId: MangaDbId;
+	readonly provider: MangaProvider;
+	readonly number: number;
+	readonly pageIndex: number;
+}> {
+	get internalMessage() {
+		return `Page ${this.pageIndex} not found for chapter ${this.number} of manga ${this.mangaId} on provider ${this.provider}`;
 	}
 }
 
@@ -289,7 +301,7 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 				});
 			}
 
-			function getChapterPages(
+			function getSortedPages(
 				mangaDbId: MangaDbId,
 				provider: MangaProvider,
 				chapterNumber: number,
@@ -297,27 +309,16 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 				return Effect.gen(function* () {
 					const providerId = yield* resolveProviderId(mangaDbId, provider);
 
-					const [chapterRow, nextChapterRow] = yield* Effect.all([
-						db.query.chapters
-							.findFirst({
-								where: {
-									mangaId: mangaDbId,
-									providerId,
-									number: chapterNumber,
-								},
-								with: { pages: true },
-							})
-							.pipe(Effect.mapError(toSQLError)),
-						db.query.chapters
-							.findFirst({
-								where: {
-									mangaId: mangaDbId,
-									providerId,
-									number: chapterNumber + 1,
-								},
-							})
-							.pipe(Effect.mapError(toSQLError)),
-					]);
+					const chapterRow = yield* db.query.chapters
+						.findFirst({
+							where: {
+								mangaId: mangaDbId,
+								providerId,
+								number: chapterNumber,
+							},
+							with: { pages: true },
+						})
+						.pipe(Effect.mapError(toSQLError));
 
 					if (!chapterRow) {
 						return yield* Effect.fail(
@@ -329,20 +330,89 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 						);
 					}
 
-					const sortedPages = chapterRow.pages
-						.slice()
-						.sort((a, b) => a.number - b.number);
+					return chapterRow.pages.slice().sort((a, b) => a.number - b.number);
+				});
+			}
 
-					const pageUrls = yield* Effect.forEach(
-						sortedPages,
-						(page) => s3.getUrl(page.path),
-						{ concurrency: 5 },
-					);
+			function getChapterPages(
+				mangaDbId: MangaDbId,
+				mangaId: AniListId,
+				provider: MangaProvider,
+				chapterNumber: number,
+			) {
+				return Effect.gen(function* () {
+					const providerId = yield* resolveProviderId(mangaDbId, provider);
+
+					const [sortedPages, nextChapterRow] = yield* Effect.all([
+						getSortedPages(mangaDbId, provider, chapterNumber),
+						db.query.chapters
+							.findFirst({
+								where: {
+									mangaId: mangaDbId,
+									providerId,
+									number: chapterNumber + 1,
+								},
+							})
+							.pipe(Effect.mapError(toSQLError)),
+					]);
 
 					return new ChapterPages({
-						pages: pageUrls,
+						pages: sortedPages.map(
+							(_, index) =>
+								`/api/scan/${mangaId}/providers/${provider}/chapters/${chapterNumber}/pages/${index}`,
+						),
 						hasNextChapter: nextChapterRow !== undefined,
 					});
+				});
+			}
+
+			function getChapterPagePresignedUrl(
+				mangaDbId: MangaDbId,
+				provider: MangaProvider,
+				chapterNumber: number,
+				pageIndex: number,
+			) {
+				return Effect.gen(function* () {
+					const providerId = yield* resolveProviderId(mangaDbId, provider);
+
+					const chapterRow = yield* db.query.chapters
+						.findFirst({
+							where: {
+								mangaId: mangaDbId,
+								providerId,
+								number: chapterNumber,
+							},
+						})
+						.pipe(Effect.mapError(toSQLError));
+
+					if (!chapterRow) {
+						return yield* Effect.fail(
+							new ChapterNotFound({
+								mangaId: mangaDbId,
+								provider,
+								number: chapterNumber,
+							}),
+						);
+					}
+
+					const pageRow = yield* db.query.pages
+						.findFirst({
+							where: { chapterId: chapterRow.id, number: pageIndex + 1 },
+						})
+						.pipe(Effect.mapError(toSQLError));
+
+					if (!pageRow) {
+						return yield* Effect.fail(
+							new PageNotFound({
+								mangaId: mangaDbId,
+								provider,
+								number: chapterNumber,
+								pageIndex,
+							}),
+						);
+					}
+
+					return yield* s3.getUrl(pageRow.path);
 				});
 			}
 
@@ -404,6 +474,7 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 				listChapterNumbers,
 				listMangaProviders,
 				getChapterPages,
+				getChapterPagePresignedUrl,
 				deleteMangaProviderChapters,
 				buildProviderArchive,
 				hasMangaProviderLink,

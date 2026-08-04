@@ -2,4 +2,6 @@ node_modules/
 dist/
 *.local
 .env
+.env.prod
+garage.prod.toml
 .claude

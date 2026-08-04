@@ -1,4 +1,4 @@
-import { HttpApiBuilder } from "@effect/platform";
+import { HttpApiBuilder, HttpServerResponse } from "@effect/platform";
 import { Effect } from "effect";
 import { CurrentUser } from "../../auth/auth.middleware.js";
 import { Api } from "../../http/api.js";
@@ -47,6 +47,13 @@ export const MangaApiGroupLive = HttpApiBuilder.group(
 										),
 								),
 							);
+					}).pipe(Effect.catchAll(toHttpError)),
+				)
+				.handle("getMangaCover", ({ path }) =>
+					Effect.gen(function* () {
+						yield* CurrentUser;
+						const url = yield* mangaService.getCoverPresignedUrl(path.mangaId);
+						return HttpServerResponse.redirect(url);
 					}).pipe(Effect.catchAll(toHttpError)),
 				)
 				.handle("refreshManga", ({ path }) =>

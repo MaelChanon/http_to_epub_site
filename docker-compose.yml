@@ -34,7 +34,6 @@ services:
     restart: unless-stopped
     ports:
       - "3900:3900" # S3 API
-      - "3902:3902" # web (service de buckets publics)
       - "3903:3903" # admin API
     volumes:
       - ./garage.toml:/etc/garage.toml:ro

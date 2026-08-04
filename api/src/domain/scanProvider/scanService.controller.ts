@@ -1,4 +1,4 @@
-import { HttpApiBuilder } from "@effect/platform";
+import { HttpApiBuilder, HttpServerResponse } from "@effect/platform";
 import { Effect } from "effect";
 import { CurrentUser } from "../../auth/auth.middleware.js";
 import { Api } from "../../http/api.js";
@@ -64,10 +64,25 @@ export const ScanProviderApiGroupLive = HttpApiBuilder.group(
 						Effect.flatMap((manga) =>
 							scanProviderService.getChapterPages(
 								manga.id,
+								path.mangaId,
 								path.provider,
 								path.number,
 							),
 						),
+						Effect.catchAll(toHttpError),
+					),
+				)
+				.handle("getMangaProviderChapterPage", ({ path }) =>
+					getManga(path.mangaId).pipe(
+						Effect.flatMap((manga) =>
+							scanProviderService.getChapterPagePresignedUrl(
+								manga.id,
+								path.provider,
+								path.number,
+								path.pageIndex,
+							),
+						),
+						Effect.map((url) => HttpServerResponse.redirect(url)),
 						Effect.catchAll(toHttpError),
 					),
 				)
