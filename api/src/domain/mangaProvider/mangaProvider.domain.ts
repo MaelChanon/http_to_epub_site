@@ -44,3 +44,17 @@ export class MangaProviderData extends Schema.Class<MangaProviderData>(
 	genres: Schema.Array(MangaGenre),
 	staff: Schema.Array(MangaStaff),
 }) {}
+
+export class AniListSearchResult extends Schema.Class<AniListSearchResult>(
+	"AniListSearchResult",
+)({
+	mangaId: AniListId,
+	titleRomaji: Schema.NullOr(Schema.NonEmptyTrimmedString),
+	titleEnglish: Schema.NullOr(Schema.NonEmptyTrimmedString),
+	titleNative: Schema.NonEmptyTrimmedString,
+	format: MangaFormat,
+	status: MangaStatus,
+	publishedAt: Schema.NullOr(Schema.Date),
+	score: Schema.NullOr(Schema.Int),
+	coverImageUrl: Schema.NonEmptyTrimmedString,
+}) {}

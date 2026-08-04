@@ -10,6 +10,7 @@ import { mangaGenre } from "../../../drizzle/schema/mangas.js";
 
 import {
 	AniListId,
+	AniListSearchResult,
 	type MangaFormat,
 	type MangaGenre,
 	MangaProviderData,
@@ -19,6 +20,7 @@ import {
 import {
 	type AniListMedia,
 	AniListMediaResponse,
+	AniListSearchResponse,
 } from "./mangaProvider.schema.js";
 
 const ANILIST_ENDPOINT = "https://graphql.anilist.co";
@@ -62,6 +64,40 @@ const QUERY = `
 const AniListRequestBody = Schema.Struct({
 	query: Schema.String,
 	variables: Schema.Struct({ id: AniListId }),
+});
+
+const SEARCH_QUERY = `
+	query ($search: String, $perPage: Int) {
+		Page(page: 1, perPage: $perPage) {
+			media(search: $search, type: MANGA) {
+				id
+				title {
+					romaji
+					english
+					native
+				}
+				format
+				status
+				startDate {
+					year
+					month
+					day
+				}
+				averageScore
+				coverImage {
+					large
+				}
+			}
+		}
+	}
+`;
+
+const AniListSearchRequestBody = Schema.Struct({
+	query: Schema.String,
+	variables: Schema.Struct({
+		search: Schema.NonEmptyTrimmedString,
+		perPage: Schema.Int,
+	}),
 });
 
 function httpBodyErrorMessage(error: HttpBody.HttpBodyError) {
@@ -224,7 +260,64 @@ export class MangaProviderService extends Effect.Service<MangaProviderService>()
 				});
 			}
 
-			return { fetchById };
+			function searchMedia(query: string) {
+				return Effect.gen(function* () {
+					const request = yield* HttpClientRequest.post(ANILIST_ENDPOINT).pipe(
+						HttpClientRequest.schemaBodyJson(AniListSearchRequestBody)({
+							query: SEARCH_QUERY,
+							variables: { search: query, perPage: 20 },
+						}),
+						Effect.mapError(
+							(error) =>
+								new MangaProviderRequestFailed({
+									message: httpBodyErrorMessage(error),
+								}),
+						),
+					);
+
+					const response = yield* client
+						.execute(request)
+						.pipe(
+							Effect.mapError(
+								(error) =>
+									new MangaProviderRequestFailed({ message: error.message }),
+							),
+						);
+
+					const body = yield* HttpClientResponse.filterStatusOk(response).pipe(
+						Effect.flatMap(
+							HttpClientResponse.schemaBodyJson(AniListSearchResponse),
+						),
+						Effect.catchTag(
+							"ParseError",
+							(error) =>
+								new MangaProviderResponseInvalid({ message: error.message }),
+						),
+						Effect.catchTag(
+							"ResponseError",
+							(error) =>
+								new MangaProviderRequestFailed({ message: error.message }),
+						),
+					);
+
+					return body.data.Page.media.map(
+						(media) =>
+							new AniListSearchResult({
+								mangaId: AniListId.make(media.id),
+								titleRomaji: media.title.romaji,
+								titleEnglish: media.title.english,
+								titleNative: media.title.native,
+								format: FORMAT_MAP[media.format],
+								status: STATUS_MAP[media.status],
+								publishedAt: toPublishedAt(media.startDate),
+								score: media.averageScore,
+								coverImageUrl: media.coverImage.large,
+							}),
+					);
+				});
+			}
+
+			return { fetchById, searchMedia };
 		}),
 		dependencies: [FetchHttpClient.layer],
 	},

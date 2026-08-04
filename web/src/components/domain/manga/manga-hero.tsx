@@ -1,7 +1,11 @@
 import type * as React from "react";
-import { IconRefresh } from "@/components/icons";
+import { IconHeart, IconRefresh } from "@/components/icons";
 import { ApiError, type Manga } from "@/lib/api";
-import { useRefreshManga } from "./manga.queries";
+import {
+	useAddFavorite,
+	useRefreshManga,
+	useRemoveFavorite,
+} from "./manga.queries";
 import {
 	coverHue,
 	displayTitle,
@@ -24,10 +28,21 @@ interface MangaHeroProps {
 
 export function MangaHero({ manga }: MangaHeroProps) {
 	const refreshMutation = useRefreshManga(manga.mangaId);
+	const addFavorite = useAddFavorite();
+	const removeFavorite = useRemoveFavorite();
+	const favoritePending = addFavorite.isPending || removeFavorite.isPending;
 	const title = displayTitle(manga);
 	const hue = coverHue(manga.id);
 	const year = manga.publishedAt ? manga.publishedAt.getFullYear() : "—";
 	const [primaryStaff, ...restStaff] = manga.staff;
+
+	function toggleFavorite() {
+		if (manga.isFavorite) {
+			removeFavorite.mutate(manga.mangaId);
+		} else {
+			addFavorite.mutate(manga.mangaId);
+		}
+	}
 
 	return (
 		<div className="grid grid-cols-[260px_1fr] gap-11 border-b border-(--line) py-5 pb-14">
@@ -76,15 +91,37 @@ export function MangaHero({ manga }: MangaHeroProps) {
 			</div>
 
 			<div className="flex min-w-0 flex-col gap-4.5">
-				<div className="flex items-center gap-2.5 font-mono text-[11px] tracking-[0.06em] text-(--ink-muted) uppercase">
-					<b className="font-semibold text-(--brand) tracking-[-0.01em] normal-case">
-						[{formatEnumLabel(manga.format)}]
-					</b>
-					<span className="opacity-40">·</span>
-					<span
-						className={`size-1.5 rounded-full ${STATUS_DOT_CLASS[manga.status]}`}
-					/>
-					<span>{formatEnumLabel(manga.status)}</span>
+				<div className="flex items-center justify-between gap-2.5">
+					<div className="flex items-center gap-2.5 font-mono text-[11px] tracking-[0.06em] text-(--ink-muted) uppercase">
+						<b className="font-semibold text-(--brand) tracking-[-0.01em] normal-case">
+							[{formatEnumLabel(manga.format)}]
+						</b>
+						<span className="opacity-40">·</span>
+						<span
+							className={`size-1.5 rounded-full ${STATUS_DOT_CLASS[manga.status]}`}
+						/>
+						<span>{formatEnumLabel(manga.status)}</span>
+					</div>
+					<button
+						type="button"
+						disabled={favoritePending}
+						onClick={toggleFavorite}
+						aria-pressed={manga.isFavorite}
+						aria-label={
+							manga.isFavorite ? "Remove from favorites" : "Add to favorites"
+						}
+						className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[12px] font-medium transition-colors disabled:opacity-50 ${
+							manga.isFavorite
+								? "border-(--line) bg-(--bg-elev-2) text-[oklch(0.65_0.2_20)]"
+								: "border-(--line) bg-(--bg-elev) text-(--ink-soft) hover:border-(--line-strong) hover:text-(--ink)"
+						}`}
+					>
+						<IconHeart
+							className="size-4"
+							fill={manga.isFavorite ? "currentColor" : "none"}
+						/>
+						{manga.isFavorite ? "Favorited" : "Favorite"}
+					</button>
 				</div>
 
 				<h1 className="text-[56px] leading-[0.95] font-medium tracking-[-0.045em] text-balance">

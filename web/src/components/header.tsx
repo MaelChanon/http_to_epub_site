@@ -1,4 +1,5 @@
-import { Link, useRouterState } from "@tanstack/react-router";
+import { Link, useRouterState, useSearch } from "@tanstack/react-router";
+import { AniListSearchBar } from "@/components/domain/manga/anilist-search-bar";
 import { IconMoon, IconSun } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/hooks/use-theme";
@@ -8,6 +9,8 @@ export function Header() {
 	const pathname = useRouterState({
 		select: (state) => state.location.pathname,
 	});
+	const search = useSearch({ strict: false });
+	const favoritesOn = pathname === "/" && search.favorites === true;
 
 	return (
 		<header className="sticky top-0 z-20 border-b border-(--line) bg-(--bg)">
@@ -28,7 +31,7 @@ export function Header() {
 					<Link
 						to="/"
 						className={`rounded-md px-3 py-2 text-[13px] font-medium transition-colors ${
-							pathname === "/"
+							pathname === "/" && !favoritesOn
 								? "bg-(--bg-elev-2) text-(--ink)"
 								: "text-(--ink-soft) hover:bg-(--bg-elev-2) hover:text-(--ink)"
 						}`}
@@ -42,14 +45,22 @@ export function Header() {
 					>
 						Library
 					</button>
-					<button
-						type="button"
-						disabled
-						className="cursor-not-allowed rounded-md px-3 py-2 text-[13px] font-medium text-(--ink-muted) opacity-50"
+					<Link
+						to="/"
+						search={{ favorites: true }}
+						className={`rounded-md px-3 py-2 text-[13px] font-medium transition-colors ${
+							favoritesOn
+								? "bg-(--bg-elev-2) text-(--ink)"
+								: "text-(--ink-soft) hover:bg-(--bg-elev-2) hover:text-(--ink)"
+						}`}
 					>
 						Favorites
-					</button>
+					</Link>
 				</nav>
+
+				<div className="ml-4 hidden flex-1 justify-center sm:flex">
+					<AniListSearchBar />
+				</div>
 
 				<div className="ml-auto flex items-center gap-2">
 					<Button

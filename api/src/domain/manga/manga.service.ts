@@ -11,13 +11,15 @@ import {
 	SQLError,
 	toSQLError,
 } from "../../../drizzle/schema/utils.js";
+import { FavoriteService } from "../favorite/favorite.service.js";
 import {
 	AniListId,
 	type MangaProviderData,
 	MangaStaff,
 } from "../mangaProvider/mangaProvider.domain.js";
 import { S3Service } from "../s3/s3.service.js";
-import { Manga, MangaDbId } from "./manga.domain.js";
+import type { UserId } from "../user/user.domain.js";
+import { Manga, MangaDbId, MangaSummary } from "./manga.domain.js";
 
 export class MangaNotFound extends Data.TaggedError("MangaNotFound")<{
 	readonly mangaId: AniListId;
@@ -33,6 +35,7 @@ export class MangaService extends Effect.Service<MangaService>()(
 		effect: Effect.gen(function* () {
 			const db = yield* DB;
 			const s3 = yield* S3Service;
+			const favoriteService = yield* FavoriteService;
 
 			type MangaRow = NonNullable<
 				Effect.Effect.Success<
@@ -44,7 +47,7 @@ export class MangaService extends Effect.Service<MangaService>()(
 				>
 			>;
 
-			function toManga(row: MangaRow) {
+			function toManga(row: MangaRow, isFavorite: boolean) {
 				return Effect.map(
 					s3.getUrl(row.path),
 					(coverUrl) =>
@@ -65,11 +68,12 @@ export class MangaService extends Effect.Service<MangaService>()(
 								(s) => new MangaStaff({ name: s.name, role: s.role }),
 							),
 							genres: row.genres.map((g) => g.genre),
+							isFavorite,
 						}),
 				);
 			}
 
-			function getManga(mangaId: AniListId) {
+			function getManga(mangaId: AniListId, userId: UserId) {
 				return Effect.gen(function* () {
 					const row = yield* db.query.mangas
 						.findFirst({
@@ -82,11 +86,62 @@ export class MangaService extends Effect.Service<MangaService>()(
 						return yield* Effect.fail(new MangaNotFound({ mangaId }));
 					}
 
-					return yield* toManga(row);
+					const isFavorite = yield* favoriteService.isFavorite(
+						userId,
+						MangaDbId.make(row.id),
+					);
+
+					return yield* toManga(row, isFavorite);
 				});
 			}
 
-			function createManga(data: MangaProviderData) {
+			function listMangas(userId: UserId) {
+				return Effect.gen(function* () {
+					const rows = yield* db.query.mangas
+						.findMany({
+							with: {
+								genres: true,
+								providers: { with: { provider: true } },
+								chapters: true,
+							},
+						})
+						.pipe(Effect.mapError(toSQLError));
+
+					const favoriteIds = yield* favoriteService.listMangaIds(userId);
+
+					return yield* Effect.forEach(rows, (row) =>
+						Effect.map(s3.getUrl(row.path), (coverUrl) => {
+							const latestChapterAt = row.chapters.reduce<Date | null>(
+								(latest, chapter) =>
+									!latest || chapter.createdAt > latest
+										? chapter.createdAt
+										: latest,
+								null,
+							);
+
+							return new MangaSummary({
+								id: MangaDbId.make(row.id),
+								mangaId: AniListId.make(row.mangaId),
+								titleRomaji: row.titleRomaji,
+								titleEnglish: row.titleEnglish,
+								titleNative: row.titleNative,
+								format: row.format,
+								status: row.status,
+								publishedAt: row.publishedAt,
+								totalChapters: row.totalChapters,
+								score: row.score,
+								coverUrl,
+								genres: row.genres.map((g) => g.genre),
+								providers: row.providers.map((p) => p.provider.name),
+								isFavorite: favoriteIds.has(MangaDbId.make(row.id)),
+								latestChapterAt,
+							});
+						}),
+					);
+				});
+			}
+
+			function createManga(data: MangaProviderData, userId: UserId) {
 				return db
 					.transaction((tx) =>
 						Effect.gen(function* () {
@@ -152,7 +207,10 @@ export class MangaService extends Effect.Service<MangaService>()(
 							yield* s3.fetchAndUpload(path, data.coverImageUrl);
 
 							const coverUrl = yield* s3.getUrl(path);
-
+							const isFavorite = yield* favoriteService.isFavorite(
+								userId,
+								MangaDbId.make(manga.id),
+							);
 							return new Manga({
 								...manga,
 								id: MangaDbId.make(manga.id),
@@ -160,6 +218,7 @@ export class MangaService extends Effect.Service<MangaService>()(
 								staff: data.staff,
 								genres: data.genres,
 								coverUrl,
+								isFavorite,
 							});
 						}),
 					)
@@ -169,8 +228,9 @@ export class MangaService extends Effect.Service<MangaService>()(
 			return {
 				createManga,
 				getManga,
+				listMangas,
 			} as const;
 		}),
-		dependencies: [DBLayer, S3Service.Default],
+		dependencies: [DBLayer, S3Service.Default, FavoriteService.Default],
 	},
 ) {}

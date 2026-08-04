@@ -1,11 +1,15 @@
-import type { Manga } from "@/lib/api";
-
 export interface ChapterRange {
 	start: number;
 	end: number;
 }
 
-export function displayTitle(manga: Manga) {
+interface TitledManga {
+	titleRomaji: string | null;
+	titleEnglish: string | null;
+	titleNative: string;
+}
+
+export function displayTitle(manga: TitledManga) {
 	return manga.titleRomaji ?? manga.titleEnglish ?? manga.titleNative;
 }
 

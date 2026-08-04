@@ -51,3 +51,29 @@ export const AniListMediaResponse = Schema.Struct({
 	}),
 });
 export type AniListMediaResponse = typeof AniListMediaResponse.Type;
+
+export const AniListSearchMedia = Schema.Struct({
+	id: Schema.Int,
+	title: Schema.Struct({
+		romaji: Schema.NullOr(Schema.String),
+		english: Schema.NullOr(Schema.String),
+		native: Schema.NonEmptyTrimmedString,
+	}),
+	format: AniListFormat,
+	status: AniListStatus,
+	startDate: AniListDate,
+	averageScore: Schema.NullOr(Schema.Int),
+	coverImage: Schema.Struct({
+		large: Schema.NonEmptyTrimmedString,
+	}),
+});
+export type AniListSearchMedia = typeof AniListSearchMedia.Type;
+
+export const AniListSearchResponse = Schema.Struct({
+	data: Schema.Struct({
+		Page: Schema.Struct({
+			media: Schema.Array(AniListSearchMedia),
+		}),
+	}),
+});
+export type AniListSearchResponse = typeof AniListSearchResponse.Type;

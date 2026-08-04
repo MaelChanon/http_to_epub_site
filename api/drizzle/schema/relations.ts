@@ -1,9 +1,10 @@
 import { defineRelations } from "drizzle-orm";
+import * as favorites from "./favorites.js";
 import * as mangas from "./mangas.js";
 import * as providers from "./providers.js";
 import * as users from "./users.js";
 
-const schema = { ...users, ...mangas, ...providers };
+const schema = { ...users, ...mangas, ...providers, ...favorites };
 
 export const relations = defineRelations(schema, (r) => ({
 	mangas: {
@@ -22,6 +23,10 @@ export const relations = defineRelations(schema, (r) => ({
 		chapters: r.many.chapters({
 			from: r.mangas.id,
 			to: r.chapters.mangaId,
+		}),
+		favorites: r.many.favorites({
+			from: r.mangas.id,
+			to: r.favorites.mangaId,
 		}),
 	},
 	mangaStaff: {
@@ -88,6 +93,24 @@ export const relations = defineRelations(schema, (r) => ({
 		provider: r.one.providers({
 			from: r.providerMangas.providerId,
 			to: r.providers.id,
+		}),
+	},
+	users: {
+		favorites: r.many.favorites({
+			from: r.users.id,
+			to: r.favorites.userId,
+		}),
+	},
+	favorites: {
+		user: r.one.users({
+			from: r.favorites.userId,
+			to: r.users.id,
+			optional: false,
+		}),
+		manga: r.one.mangas({
+			from: r.favorites.mangaId,
+			to: r.mangas.id,
+			optional: false,
 		}),
 	},
 }));

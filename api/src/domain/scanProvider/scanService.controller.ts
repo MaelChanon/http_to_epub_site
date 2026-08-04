@@ -1,8 +1,10 @@
 import { HttpApiBuilder } from "@effect/platform";
 import { Effect } from "effect";
+import { CurrentUser } from "../../auth/auth.middleware.js";
 import { Api } from "../../http/api.js";
 import { toHttpError } from "../../http/error.js";
 import { MangaService } from "../manga/manga.service.js";
+import type { AniListId } from "../mangaProvider/mangaProvider.domain.js";
 import { ProviderCatalogService } from "./providerCatalog.service.js";
 import { ScanProviderService } from "./scanProvider.service.js";
 
@@ -15,9 +17,15 @@ export const ScanProviderApiGroupLive = HttpApiBuilder.group(
 			const scanProviderService = yield* ScanProviderService;
 			const providerCatalogService = yield* ProviderCatalogService;
 
+			function getManga(mangaId: AniListId) {
+				return Effect.flatMap(CurrentUser, (user) =>
+					mangaService.getManga(mangaId, user.id),
+				);
+			}
+
 			return handlers
 				.handle("syncMangaChapters", ({ path, payload }) =>
-					mangaService.getManga(path.mangaId).pipe(
+					getManga(path.mangaId).pipe(
 						Effect.flatMap((manga) =>
 							scanProviderService.syncMangaChapters(
 								manga.id,
@@ -29,7 +37,7 @@ export const ScanProviderApiGroupLive = HttpApiBuilder.group(
 					),
 				)
 				.handle("getMangaProviders", ({ path }) =>
-					mangaService.getManga(path.mangaId).pipe(
+					getManga(path.mangaId).pipe(
 						Effect.flatMap((manga) =>
 							scanProviderService.listMangaProviders(manga.id),
 						),
@@ -37,7 +45,7 @@ export const ScanProviderApiGroupLive = HttpApiBuilder.group(
 					),
 				)
 				.handle("getMangaProviderChapters", ({ path }) =>
-					mangaService.getManga(path.mangaId).pipe(
+					getManga(path.mangaId).pipe(
 						Effect.flatMap((manga) =>
 							scanProviderService.listChapterNumbers(manga.id, path.provider),
 						),
@@ -45,7 +53,7 @@ export const ScanProviderApiGroupLive = HttpApiBuilder.group(
 					),
 				)
 				.handle("getMangaProviderChapterPages", ({ path }) =>
-					mangaService.getManga(path.mangaId).pipe(
+					getManga(path.mangaId).pipe(
 						Effect.flatMap((manga) =>
 							scanProviderService.getChapterPages(
 								manga.id,
@@ -62,7 +70,7 @@ export const ScanProviderApiGroupLive = HttpApiBuilder.group(
 						.pipe(Effect.catchAll(toHttpError)),
 				)
 				.handle("deleteMangaProviderChapters", ({ path }) =>
-					mangaService.getManga(path.mangaId).pipe(
+					getManga(path.mangaId).pipe(
 						Effect.flatMap((manga) =>
 							scanProviderService.deleteMangaProviderChapters(
 								manga.id,
@@ -73,7 +81,7 @@ export const ScanProviderApiGroupLive = HttpApiBuilder.group(
 					),
 				)
 				.handle("buildMangaProviderArchive", ({ path }) =>
-					mangaService.getManga(path.mangaId).pipe(
+					getManga(path.mangaId).pipe(
 						Effect.flatMap((manga) =>
 							scanProviderService.buildProviderArchive(manga.id, path.provider),
 						),

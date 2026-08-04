@@ -1,11 +1,13 @@
 import { FetchHttpClient, HttpApiClient } from "@effect/platform";
 import type {
+	AniListSearchResult,
 	ChapterPages,
 	CreateUserPayload,
 	LoginPayload,
 	Manga,
 	MangaProviderChapters,
 	MangaProviderName,
+	MangaSummary,
 	ProviderArchive,
 	ProviderMangaSummary,
 	User,
@@ -14,14 +16,16 @@ import { type AniListId, Api } from "@workspace/api";
 import { Effect, Layer } from "effect";
 
 export type {
+	AniListSearchResult,
 	ChapterPages,
 	Manga,
 	MangaProviderChapters,
+	MangaSummary,
 	ProviderArchive,
 	ProviderMangaSummary,
 	User,
 } from "@workspace/api";
-export { AniListId, MangaProviderName } from "@workspace/api";
+export { AniListId, MangaGenre, MangaProviderName } from "@workspace/api";
 
 export class ApiError extends Error {}
 
@@ -70,6 +74,38 @@ export function refreshManga(mangaId: AniListId): Promise<Manga> {
 	return Effect.runPromise(
 		client.manga
 			.refreshManga({ path: { mangaId } })
+			.pipe(Effect.catchAll(toApiError)),
+	);
+}
+
+export function listMangas(): Promise<readonly MangaSummary[]> {
+	return Effect.runPromise(
+		client.manga.listMangas().pipe(Effect.catchAll(toApiError)),
+	);
+}
+
+export function searchManga(
+	q: string,
+): Promise<readonly AniListSearchResult[]> {
+	return Effect.runPromise(
+		client.manga
+			.searchManga({ urlParams: { q } })
+			.pipe(Effect.catchAll(toApiError)),
+	);
+}
+
+export function addFavorite(mangaId: AniListId): Promise<Manga> {
+	return Effect.runPromise(
+		client.manga
+			.addFavorite({ path: { mangaId } })
+			.pipe(Effect.catchAll(toApiError)),
+	);
+}
+
+export function removeFavorite(mangaId: AniListId): Promise<Manga> {
+	return Effect.runPromise(
+		client.manga
+			.removeFavorite({ path: { mangaId } })
 			.pipe(Effect.catchAll(toApiError)),
 	);
 }

@@ -10,8 +10,12 @@ import {
 	UnauthorizedError,
 } from "./error.js";
 
-export { Manga } from "../domain/manga/manga.domain.js";
-export { AniListId } from "../domain/mangaProvider/mangaProvider.domain.js";
+export { Manga, MangaSummary } from "../domain/manga/manga.domain.js";
+export {
+	AniListId,
+	AniListSearchResult,
+	MangaGenre,
+} from "../domain/mangaProvider/mangaProvider.domain.js";
 export {
 	ChapterPages,
 	ChapterSummary,

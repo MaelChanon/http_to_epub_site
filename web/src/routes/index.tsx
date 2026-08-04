@@ -1,9 +1,49 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, redirect } from "@tanstack/react-router";
+import { z } from "zod";
+import { authKeys, getCurrentUser } from "@/auth/auth.queries";
+import { BrowseSection } from "@/components/domain/home/browse-section";
+import { FavoritesOnlyPage } from "@/components/domain/home/favorites-only-page";
+import { FavoritesSection } from "@/components/domain/home/favorites-section";
+import { NewDropsSection } from "@/components/domain/home/new-drops-section";
+import { Header } from "@/components/header";
 
 export const Route = createFileRoute("/")({
+	validateSearch: z.object({ favorites: z.boolean().optional() }),
+	beforeLoad: async ({ context }) => {
+		const user = await context.queryClient.ensureQueryData({
+			queryKey: authKeys.currentUser(),
+			queryFn: getCurrentUser,
+		});
+
+		if (!user) {
+			throw redirect({ to: "/login" });
+		}
+	},
 	component: IndexPage,
 });
 
 function IndexPage() {
-	return <div>Hello from the frontend!</div>;
+	const { favorites: favoritesOnly } = Route.useSearch();
+
+	if (favoritesOnly) {
+		return <FavoritesOnlyPage />;
+	}
+
+	return (
+		<div className="min-h-screen">
+			<Header />
+
+			<main>
+				<div className="mx-auto max-w-[1440px] px-8">
+					<NewDropsSection />
+					<FavoritesSection />
+					<BrowseSection />
+
+					<footer className="mt-10 flex items-center justify-between border-t border-(--line) py-10 font-mono text-[11px] text-(--ink-muted)">
+						<div>http → epub · v0.1</div>
+					</footer>
+				</div>
+			</main>
+		</div>
+	);
 }
