@@ -2,11 +2,11 @@ name: Build, push and deploy
 
 on:
   push:
-    branches: [main]
+    branches: [master]
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_OWNER: MaelChanon
+  IMAGE_OWNER: maelchanon
   IMAGE_REPO: http_to_epub_site
 
 jobs:

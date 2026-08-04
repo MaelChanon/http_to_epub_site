@@ -7,7 +7,6 @@ class AppConfig {
 		readonly host: string,
 		readonly port: number,
 		readonly databaseUrl: string,
-		readonly sessionSecret: string,
 		readonly sessionCookieName: string,
 		readonly sessionTtlSeconds: number,
 		readonly cookieSecure: boolean,
@@ -29,9 +28,6 @@ export const appConfig = Config.map(
 			Config.withDefault(
 				"postgres://user:secret@localhost:5432/mydatabasename",
 			),
-		),
-		Config.string("SESSION_SECRET").pipe(
-			Config.withDefault("dev-only-secret-change-me"),
 		),
 		Config.string("SESSION_COOKIE_NAME").pipe(Config.withDefault("session")),
 		Config.number("SESSION_TTL_SECONDS").pipe(
@@ -57,7 +53,6 @@ export const appConfig = Config.map(
 		host,
 		port,
 		databaseUrl,
-		sessionSecret,
 		sessionCookieName,
 		sessionTtlSeconds,
 		cookieSecure,
@@ -74,7 +69,6 @@ export const appConfig = Config.map(
 			host,
 			port,
 			databaseUrl,
-			sessionSecret,
 			sessionCookieName,
 			sessionTtlSeconds,
 			cookieSecure,

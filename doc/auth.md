@@ -106,9 +106,8 @@ Env vars, see `config.ts` / `.env.sample`:
 - `SESSION_TTL_SECONDS` — session lifetime in Redis (default 7 days). Used.
 - `COOKIE_SECURE` — sets the cookie's `secure` attribute (`false` for local
   dev). Used.
-- `SESSION_SECRET`, `SESSION_COOKIE_NAME` — defined but currently **unused**:
-  tokens are random opaque bytes (nothing is signed with `SESSION_SECRET`),
-  and the cookie name is hardcoded as `"session"` in `auth.middleware.ts`.
+- `SESSION_COOKIE_NAME` — defined but currently **unused**: the cookie name
+  is hardcoded as `"session"` in `auth.middleware.ts`.
 
 AniList (used by the manga feature) is unrelated to user authentication: it's
 queried anonymously server-side, no OAuth client is involved.

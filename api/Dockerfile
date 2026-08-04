@@ -30,6 +30,9 @@ WORKDIR /repo/api
 RUN npm run build
 
 FROM node:22-bookworm-slim AS runtime
+RUN apt-get update && apt-get install -y --no-install-recommends \
+		ca-certificates \
+	&& rm -rf /var/lib/apt/lists/*
 ENV NODE_ENV=production
 WORKDIR /repo
 COPY --from=api-builder /repo/node_modules ./node_modules
@@ -39,8 +42,12 @@ COPY --from=api-builder /repo/manga-fetcher/index.node ./manga-fetcher/index.nod
 COPY --from=api-builder /repo/manga-fetcher/lib ./manga-fetcher/lib
 COPY --from=api-builder /repo/api/package.json ./api/package.json
 COPY --from=api-builder /repo/api/dist ./api/dist
+COPY --from=api-builder /repo/api/node_modules ./api/node_modules
+COPY --from=api-builder /repo/api/drizzle.config.ts ./api/drizzle.config.ts
+COPY --from=api-builder /repo/api/drizzle ./api/drizzle
+COPY --from=api-builder /repo/api/src/config.ts ./api/src/config.ts
 
 WORKDIR /repo/api
 USER node
 EXPOSE 3000
-CMD ["node", "dist/src/index.js"]
+CMD ["sh", "-c", "npm run db:migrate && node dist/src/index.js"]

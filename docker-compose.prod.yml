@@ -2,28 +2,22 @@ name: http-to-epub-prod
 
 services:
   web:
-    build:
-      context: .
-      dockerfile: web/Dockerfile
+    image: ghcr.io/maelchanon/http_to_epub_site-web:latest
     restart: unless-stopped
-    networks: [edge]
     ports:
-      - "80:80"
-    depends_on:
-      - api
+      - "127.0.0.1:3001:3000"
 
   api:
-    build:
-      context: .
-      dockerfile: api/Dockerfile
+    image: ghcr.io/maelchanon/http_to_epub_site-api:latest
     restart: unless-stopped
     networks: [edge, internal]
+    ports:
+      - "127.0.0.1:3000:3000"
     environment:
       HOST: "0.0.0.0"
       PORT: "3000"
       DATABASE_URL: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
       REDIS_URL: "redis://redis:6379"
-      SESSION_SECRET: "${SESSION_SECRET}"
       SESSION_COOKIE_NAME: "${SESSION_COOKIE_NAME:-session}"
       SESSION_TTL_SECONDS: "${SESSION_TTL_SECONDS:-604800}"
       COOKIE_SECURE: "true"
@@ -42,24 +36,6 @@ services:
       garage:
         condition: service_started
 
-  # One-off migration runner: `docker compose -f docker-compose.prod.yml
-  # --env-file .env.prod --profile tools run --rm api-migrate`
-  # Uses the api-builder stage (has drizzle-kit + TS source), not the
-  # slim runtime image — see the note in api/Dockerfile.
-  api-migrate:
-    build:
-      context: .
-      dockerfile: api/Dockerfile
-      target: api-builder
-    profiles: ["tools"]
-    networks: [internal]
-    environment:
-      DATABASE_URL: "postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}"
-    command: ["npm", "run", "db:migrate"]
-    depends_on:
-      postgres:
-        condition: service_healthy
-
   postgres:
     image: postgres:18.4
     restart: unless-stopped
@@ -69,7 +45,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_DB: ${POSTGRES_DB}
     volumes:
-      - pg_data:/var/lib/postgresql/data
+      - pg_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
@@ -77,7 +53,7 @@ services:
       retries: 10
 
   redis:
-    image: redis:7-alpine
+    image: redis:8.10.0-alpine
     restart: unless-stopped
     networks: [internal]
     volumes:
@@ -93,7 +69,7 @@ services:
     restart: unless-stopped
     networks: [edge]
     ports:
-      - "3900:3900"
+      - "127.0.0.1:3900:3900"
     volumes:
       - /opt/garage/garage.toml:/etc/garage.toml:ro
       - garage_meta:/var/lib/garage/meta
