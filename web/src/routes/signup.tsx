@@ -34,7 +34,8 @@ function SignupPage() {
 	});
 
 	const mutation = useMutation({
-		mutationFn: signup,
+		mutationFn: (values: SignupFormValues) =>
+			signup({ ...values, permissions: [] }),
 		onSuccess: () => navigate({ to: "/" }),
 	});
 

@@ -8,6 +8,7 @@ import type {
 	MangaProviderChapters,
 	MangaProviderName,
 	MangaSummary,
+	Permission,
 	ProviderArchive,
 	ProviderMangaSummary,
 	User,
@@ -18,6 +19,7 @@ import { Effect, Layer } from "effect";
 export type {
 	AniListSearchResult,
 	ChapterPages,
+	CreateUserPayload,
 	Manga,
 	MangaProviderChapters,
 	MangaSummary,
@@ -25,7 +27,12 @@ export type {
 	ProviderMangaSummary,
 	User,
 } from "@workspace/api";
-export { AniListId, MangaGenre, MangaProviderName } from "@workspace/api";
+export {
+	AniListId,
+	MangaGenre,
+	MangaProviderName,
+	Permission,
+} from "@workspace/api";
 
 export class ApiError extends Error {}
 
@@ -59,6 +66,29 @@ export function logout(): Promise<void> {
 export function getCurrentUser(): Promise<User | null> {
 	return Effect.runPromise(
 		client.auth.me().pipe(Effect.catchAll(() => Effect.succeed(null))),
+	);
+}
+
+export function listUsers(): Promise<readonly User[]> {
+	return Effect.runPromise(
+		client.users.listUsers().pipe(Effect.catchAll(toApiError)),
+	);
+}
+
+export function updateUserPermissions(
+	id: User["id"],
+	permissions: readonly Permission[],
+): Promise<User> {
+	return Effect.runPromise(
+		client.users
+			.updateUserPermissions({ path: { id }, payload: { permissions } })
+			.pipe(Effect.catchAll(toApiError)),
+	);
+}
+
+export function deleteUser(id: User["id"]): Promise<void> {
+	return Effect.runPromise(
+		client.users.deleteUser({ path: { id } }).pipe(Effect.catchAll(toApiError)),
 	);
 }
 

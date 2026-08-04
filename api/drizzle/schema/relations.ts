@@ -100,6 +100,17 @@ export const relations = defineRelations(schema, (r) => ({
 			from: r.users.id,
 			to: r.favorites.userId,
 		}),
+		permissions: r.many.userPermissions({
+			from: r.users.id,
+			to: r.userPermissions.userId,
+		}),
+	},
+	userPermissions: {
+		user: r.one.users({
+			from: r.userPermissions.userId,
+			to: r.users.id,
+			optional: false,
+		}),
 	},
 	favorites: {
 		user: r.one.users({

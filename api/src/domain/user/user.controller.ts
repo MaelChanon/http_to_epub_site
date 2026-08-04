@@ -1,15 +1,18 @@
 import { HttpApiBuilder, HttpServerRequest } from "@effect/platform";
 import { Effect, Option } from "effect";
 import { CurrentUser, sessionCookie } from "../../auth/auth.middleware.js";
+import { AuthService } from "../../auth/auth.service.js";
 import { appConfig } from "../../config.js";
 import { EncryptService } from "../../encrypt/encryptService.js";
 import { Api } from "../../http/api.js";
 import {
 	BadRequestError,
+	ForbiddenError,
 	toHttpError,
 	UnauthorizedError,
 } from "../../http/error.js";
 import { SessionService } from "../../session/session.service.js";
+import { requireAdmin } from "./permission.js";
 import { User } from "./user.schema.js";
 import { UserService } from "./user.service.js";
 
@@ -20,34 +23,112 @@ export const UsersApiGroupLive = HttpApiBuilder.group(
 		Effect.gen(function* () {
 			const userService = yield* UserService;
 			const sessionService = yield* SessionService;
+			const authService = yield* AuthService;
 			const config = yield* appConfig;
-			return handlers.handle("createUser", ({ payload }) =>
-				Effect.gen(function* () {
-					const existing = yield* Effect.option(
-						userService.getUserByEmail(payload.email),
-					);
-					if (Option.isSome(existing)) {
-						return yield* Effect.fail(
-							new BadRequestError({ message: "User already exists" }),
+			return handlers
+				.handle("createUser", ({ payload }) =>
+					Effect.gen(function* () {
+						const total = yield* userService
+							.countUsers()
+							.pipe(Effect.catchAll(toHttpError));
+
+						if (total > 0) {
+							const request = yield* HttpServerRequest.HttpServerRequest;
+							const token = request.cookies.session;
+							const requester = yield* authService
+								.authenticate(token ?? "")
+								.pipe(
+									Effect.catchAll(() =>
+										Effect.fail(
+											new UnauthorizedError({
+												message: "Authentication required",
+											}),
+										),
+									),
+								);
+							if (!requester.isAdmin) {
+								return yield* Effect.fail(
+									new ForbiddenError({
+										message: "Only an administrator can create users",
+									}),
+								);
+							}
+						}
+
+						const existing = yield* Effect.option(
+							userService.getUserByEmail(payload.email),
 						);
-					}
-					const user = yield* userService
-						.createUser(payload)
-						.pipe(Effect.catchAll(toHttpError));
+						if (Option.isSome(existing)) {
+							return yield* Effect.fail(
+								new BadRequestError({ message: "User already exists" }),
+							);
+						}
+						const user = yield* userService
+							.createUser(payload)
+							.pipe(Effect.catchAll(toHttpError));
 
-					const token = yield* sessionService
-						.createToken(user.id)
-						.pipe(Effect.catchAll(toHttpError));
-					yield* HttpApiBuilder.securitySetCookie(sessionCookie, token, {
-						path: "/",
-						sameSite: "lax",
-						secure: config.cookieSecure,
-						maxAge: sessionService.ttl,
-					});
+						if (total === 0) {
+							const token = yield* sessionService
+								.createToken(user.id)
+								.pipe(Effect.catchAll(toHttpError));
+							yield* HttpApiBuilder.securitySetCookie(sessionCookie, token, {
+								path: "/",
+								sameSite: "lax",
+								secure: config.cookieSecure,
+								maxAge: sessionService.ttl,
+							});
+						}
 
-					return user;
-				}),
-			);
+						return user;
+					}),
+				)
+				.handle("listUsers", () =>
+					Effect.gen(function* () {
+						const user = yield* CurrentUser;
+						yield* requireAdmin(user);
+						return yield* userService
+							.listUsers()
+							.pipe(Effect.catchAll(toHttpError));
+					}),
+				)
+				.handle("updateUserPermissions", ({ path, payload }) =>
+					Effect.gen(function* () {
+						const user = yield* CurrentUser;
+						yield* requireAdmin(user);
+						const target = yield* userService
+							.getUserById(path.id)
+							.pipe(Effect.catchAll(toHttpError));
+						if (target.isAdmin) {
+							return yield* Effect.fail(
+								new BadRequestError({
+									message: "Cannot edit an administrator's permissions",
+								}),
+							);
+						}
+						return yield* userService
+							.updateUserPermissions(path.id, payload.permissions)
+							.pipe(Effect.catchAll(toHttpError));
+					}),
+				)
+				.handle("deleteUser", ({ path }) =>
+					Effect.gen(function* () {
+						const user = yield* CurrentUser;
+						yield* requireAdmin(user);
+						const target = yield* userService
+							.getUserById(path.id)
+							.pipe(Effect.catchAll(toHttpError));
+						if (target.isAdmin) {
+							return yield* Effect.fail(
+								new BadRequestError({
+									message: "Cannot delete an administrator",
+								}),
+							);
+						}
+						yield* userService
+							.deleteUser(path.id)
+							.pipe(Effect.catchAll(toHttpError));
+					}),
+				);
 		}),
 );
 
@@ -88,6 +169,7 @@ export const AuthApiGroupLive = HttpApiBuilder.group(Api, "auth", (handlers) =>
 						pseudo: user.pseudo,
 						email: user.email,
 						isAdmin: user.isAdmin,
+						permissions: user.permissions,
 					});
 				}),
 			)
