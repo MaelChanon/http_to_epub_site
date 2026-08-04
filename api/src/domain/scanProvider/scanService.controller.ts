@@ -5,6 +5,7 @@ import { Api } from "../../http/api.js";
 import { toHttpError } from "../../http/error.js";
 import { MangaService } from "../manga/manga.service.js";
 import type { AniListId } from "../mangaProvider/mangaProvider.domain.js";
+import { requirePermission } from "../user/permission.js";
 import { ProviderCatalogService } from "./providerCatalog.service.js";
 import { ScanProviderService } from "./scanProvider.service.js";
 
@@ -25,16 +26,22 @@ export const ScanProviderApiGroupLive = HttpApiBuilder.group(
 
 			return handlers
 				.handle("syncMangaChapters", ({ path, payload }) =>
-					getManga(path.mangaId).pipe(
-						Effect.flatMap((manga) =>
-							scanProviderService.syncMangaChapters(
-								manga.id,
-								payload.slug,
-								payload.provider,
-							),
-						),
-						Effect.catchAll(toHttpError),
-					),
+					Effect.gen(function* () {
+						const user = yield* CurrentUser;
+						const manga = yield* getManga(path.mangaId).pipe(
+							Effect.catchAll(toHttpError),
+						);
+						const alreadyLinked = yield* scanProviderService
+							.hasMangaProviderLink(manga.id, payload.provider)
+							.pipe(Effect.catchAll(toHttpError));
+						yield* requirePermission(
+							user,
+							alreadyLinked ? "MANGA_PROVIDER_REFRESH" : "MANGA_PROVIDER_ADD",
+						);
+						yield* scanProviderService
+							.syncMangaChapters(manga.id, payload.slug, payload.provider)
+							.pipe(Effect.catchAll(toHttpError));
+					}),
 				)
 				.handle("getMangaProviders", ({ path }) =>
 					getManga(path.mangaId).pipe(
@@ -70,15 +77,16 @@ export const ScanProviderApiGroupLive = HttpApiBuilder.group(
 						.pipe(Effect.catchAll(toHttpError)),
 				)
 				.handle("deleteMangaProviderChapters", ({ path }) =>
-					getManga(path.mangaId).pipe(
-						Effect.flatMap((manga) =>
-							scanProviderService.deleteMangaProviderChapters(
-								manga.id,
-								path.provider,
-							),
-						),
-						Effect.catchAll(toHttpError),
-					),
+					Effect.gen(function* () {
+						const user = yield* CurrentUser;
+						yield* requirePermission(user, "MANGA_PROVIDER_DELETE");
+						const manga = yield* getManga(path.mangaId).pipe(
+							Effect.catchAll(toHttpError),
+						);
+						yield* scanProviderService
+							.deleteMangaProviderChapters(manga.id, path.provider)
+							.pipe(Effect.catchAll(toHttpError));
+					}),
 				)
 				.handle("buildMangaProviderArchive", ({ path }) =>
 					getManga(path.mangaId).pipe(

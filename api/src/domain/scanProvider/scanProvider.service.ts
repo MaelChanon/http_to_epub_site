@@ -392,6 +392,13 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 				});
 			}
 
+			function hasMangaProviderLink(
+				mangaDbId: MangaDbId,
+				provider: MangaProvider,
+			) {
+				return providerRepo.hasMangaProviderLink(mangaDbId, provider);
+			}
+
 			return {
 				syncMangaChapters,
 				listChapterNumbers,
@@ -399,6 +406,7 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 				getChapterPages,
 				deleteMangaProviderChapters,
 				buildProviderArchive,
+				hasMangaProviderLink,
 			} as const;
 		}),
 		dependencies: [

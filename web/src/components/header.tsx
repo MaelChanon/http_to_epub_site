@@ -1,4 +1,6 @@
+import { useQuery } from "@tanstack/react-query";
 import { Link, useRouterState, useSearch } from "@tanstack/react-router";
+import { authKeys, getCurrentUser } from "@/auth/auth.queries";
 import { AniListSearchBar } from "@/components/domain/manga/anilist-search-bar";
 import { IconMoon, IconSun } from "@/components/icons";
 import { Button } from "@/components/ui/button";
@@ -11,6 +13,10 @@ export function Header() {
 	});
 	const search = useSearch({ strict: false });
 	const favoritesOn = pathname === "/" && search.favorites === true;
+	const { data: currentUser } = useQuery({
+		queryKey: authKeys.currentUser(),
+		queryFn: getCurrentUser,
+	});
 
 	return (
 		<header className="sticky top-0 z-20 border-b border-(--line) bg-(--bg)">
@@ -56,6 +62,18 @@ export function Header() {
 					>
 						Favorites
 					</Link>
+					{currentUser?.isAdmin && (
+						<Link
+							to="/admin/users"
+							className={`rounded-md px-3 py-2 text-[13px] font-medium transition-colors ${
+								pathname === "/admin/users"
+									? "bg-(--bg-elev-2) text-(--ink)"
+									: "text-(--ink-soft) hover:bg-(--bg-elev-2) hover:text-(--ink)"
+							}`}
+						>
+							Admin
+						</Link>
+					)}
 				</nav>
 
 				<div className="ml-4 hidden flex-1 justify-center sm:flex">

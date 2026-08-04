@@ -5,6 +5,7 @@ import { Api } from "../../http/api.js";
 import { toHttpError } from "../../http/error.js";
 import { FavoriteService } from "../favorite/favorite.service.js";
 import { MangaProviderService } from "../mangaProvider/mangaProvider.service.js";
+import { requirePermission } from "../user/permission.js";
 import { Manga } from "./manga.domain.js";
 import { MangaService } from "./manga.service.js";
 
@@ -51,9 +52,14 @@ export const MangaApiGroupLive = HttpApiBuilder.group(
 				.handle("refreshManga", ({ path }) =>
 					Effect.gen(function* () {
 						const user = yield* CurrentUser;
-						const data = yield* mangaProviderService.fetchById(path.mangaId);
-						return yield* mangaService.createManga(data, user.id);
-					}).pipe(Effect.catchAll(toHttpError)),
+						yield* requirePermission(user, "MANGA_METADATA_REFRESH");
+						const data = yield* mangaProviderService
+							.fetchById(path.mangaId)
+							.pipe(Effect.catchAll(toHttpError));
+						return yield* mangaService
+							.createManga(data, user.id)
+							.pipe(Effect.catchAll(toHttpError));
+					}),
 				)
 				.handle("addFavorite", ({ path }) =>
 					Effect.gen(function* () {

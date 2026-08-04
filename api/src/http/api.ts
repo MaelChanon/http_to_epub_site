@@ -27,6 +27,7 @@ export {
 export {
 	CreateUserPayload,
 	LoginPayload,
+	Permission,
 	User,
 } from "../domain/user/user.schema.js";
 

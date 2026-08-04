@@ -86,10 +86,32 @@ export class ProviderRepository extends Effect.Service<ProviderRepository>()(
 				});
 			}
 
+			function hasMangaProviderLink(
+				mangaDbId: MangaDbId,
+				name: MangaProviderName,
+			) {
+				return Effect.gen(function* () {
+					const db = yield* DB;
+					const providerId = yield* findProviderIdByName(name);
+					if (Option.isNone(providerId)) {
+						return false;
+					}
+
+					const row = yield* db.query.mangaProviders
+						.findFirst({
+							where: { mangaId: mangaDbId, providerId: providerId.value },
+						})
+						.pipe(Effect.mapError(toSQLError));
+
+					return row !== undefined;
+				});
+			}
+
 			return {
 				findProviderIdByName,
 				ensureProvider,
 				ensureMangaProviderLink,
+				hasMangaProviderLink,
 			} as const;
 		}),
 		dependencies: [DBLayer],

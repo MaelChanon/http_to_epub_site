@@ -1,5 +1,6 @@
 import { Effect } from "effect";
 import { EncryptService } from "../../encrypt/encryptService.js";
+import type { Permission } from "./permission.js";
 import type { UserId } from "./user.domain.js";
 import { UsersRepository } from "./user.repository.js";
 import type { CreateUserPayload } from "./user.schema.js";
@@ -18,8 +19,13 @@ export class UserService extends Effect.Service<UserService>()(
 						pseudo: payload.pseudo,
 						email: payload.email,
 						password: hashedPassword,
+						permissions: payload.permissions,
 					});
 				});
+			}
+
+			function countUsers() {
+				return repo.count();
 			}
 
 			function getUserById(id: UserId) {
@@ -34,11 +40,30 @@ export class UserService extends Effect.Service<UserService>()(
 				return repo.getByEmailWithPassword(email);
 			}
 
+			function listUsers() {
+				return repo.listNonAdmin();
+			}
+
+			function updateUserPermissions(
+				id: UserId,
+				permissions: readonly Permission[],
+			) {
+				return repo.setPermissions(id, permissions);
+			}
+
+			function deleteUser(id: UserId) {
+				return repo.deleteUser(id);
+			}
+
 			return {
 				createUser,
+				countUsers,
 				getUserById,
 				getUserByEmail,
 				getUserByEmailWithPassword,
+				listUsers,
+				updateUserPermissions,
+				deleteUser,
 			} as const;
 		}),
 		dependencies: [UsersRepository.Default, EncryptService.Default],
