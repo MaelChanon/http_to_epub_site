@@ -48,29 +48,41 @@ export class MangaService extends Effect.Service<MangaService>()(
 			>;
 
 			function toManga(row: MangaRow, isFavorite: boolean) {
-				return Effect.map(
-					s3.getUrl(row.path),
-					(coverUrl) =>
-						new Manga({
-							id: MangaDbId.make(row.id),
-							mangaId: AniListId.make(row.mangaId),
-							titleRomaji: row.titleRomaji,
-							titleEnglish: row.titleEnglish,
-							titleNative: row.titleNative,
-							format: row.format,
-							status: row.status,
-							publishedAt: row.publishedAt,
-							totalChapters: row.totalChapters,
-							score: row.score,
-							summary: row.summary,
-							coverUrl,
-							staff: row.staff.map(
-								(s) => new MangaStaff({ name: s.name, role: s.role }),
-							),
-							genres: row.genres.map((g) => g.genre),
-							isFavorite,
-						}),
+				return Effect.succeed(
+					new Manga({
+						id: MangaDbId.make(row.id),
+						mangaId: AniListId.make(row.mangaId),
+						titleRomaji: row.titleRomaji,
+						titleEnglish: row.titleEnglish,
+						titleNative: row.titleNative,
+						format: row.format,
+						status: row.status,
+						publishedAt: row.publishedAt,
+						totalChapters: row.totalChapters,
+						score: row.score,
+						summary: row.summary,
+						coverUrl: `/api/manga/${row.mangaId}/cover`,
+						staff: row.staff.map(
+							(s) => new MangaStaff({ name: s.name, role: s.role }),
+						),
+						genres: row.genres.map((g) => g.genre),
+						isFavorite,
+					}),
 				);
+			}
+
+			function getCoverPresignedUrl(mangaId: AniListId) {
+				return Effect.gen(function* () {
+					const row = yield* db.query.mangas
+						.findFirst({ where: { mangaId } })
+						.pipe(Effect.mapError(toSQLError));
+
+					if (!row) {
+						return yield* Effect.fail(new MangaNotFound({ mangaId }));
+					}
+
+					return yield* s3.getUrl(row.path);
+				});
 			}
 
 			function getManga(mangaId: AniListId, userId: UserId) {
@@ -109,35 +121,33 @@ export class MangaService extends Effect.Service<MangaService>()(
 
 					const favoriteIds = yield* favoriteService.listMangaIds(userId);
 
-					return yield* Effect.forEach(rows, (row) =>
-						Effect.map(s3.getUrl(row.path), (coverUrl) => {
-							const latestChapterAt = row.chapters.reduce<Date | null>(
-								(latest, chapter) =>
-									!latest || chapter.createdAt > latest
-										? chapter.createdAt
-										: latest,
-								null,
-							);
+					return rows.map((row) => {
+						const latestChapterAt = row.chapters.reduce<Date | null>(
+							(latest, chapter) =>
+								!latest || chapter.createdAt > latest
+									? chapter.createdAt
+									: latest,
+							null,
+						);
 
-							return new MangaSummary({
-								id: MangaDbId.make(row.id),
-								mangaId: AniListId.make(row.mangaId),
-								titleRomaji: row.titleRomaji,
-								titleEnglish: row.titleEnglish,
-								titleNative: row.titleNative,
-								format: row.format,
-								status: row.status,
-								publishedAt: row.publishedAt,
-								totalChapters: row.totalChapters,
-								score: row.score,
-								coverUrl,
-								genres: row.genres.map((g) => g.genre),
-								providers: row.providers.map((p) => p.provider.name),
-								isFavorite: favoriteIds.has(MangaDbId.make(row.id)),
-								latestChapterAt,
-							});
-						}),
-					);
+						return new MangaSummary({
+							id: MangaDbId.make(row.id),
+							mangaId: AniListId.make(row.mangaId),
+							titleRomaji: row.titleRomaji,
+							titleEnglish: row.titleEnglish,
+							titleNative: row.titleNative,
+							format: row.format,
+							status: row.status,
+							publishedAt: row.publishedAt,
+							totalChapters: row.totalChapters,
+							score: row.score,
+							coverUrl: `/api/manga/${row.mangaId}/cover`,
+							genres: row.genres.map((g) => g.genre),
+							providers: row.providers.map((p) => p.provider.name),
+							isFavorite: favoriteIds.has(MangaDbId.make(row.id)),
+							latestChapterAt,
+						});
+					});
 				});
 			}
 
@@ -206,7 +216,7 @@ export class MangaService extends Effect.Service<MangaService>()(
 
 							yield* s3.fetchAndUpload(path, data.coverImageUrl);
 
-							const coverUrl = yield* s3.getUrl(path);
+							const coverUrl = `/api/manga/${manga.mangaId}/cover`;
 							const isFavorite = yield* favoriteService.isFavorite(
 								userId,
 								MangaDbId.make(manga.id),
@@ -229,6 +239,7 @@ export class MangaService extends Effect.Service<MangaService>()(
 				createManga,
 				getManga,
 				listMangas,
+				getCoverPresignedUrl,
 			} as const;
 		}),
 		dependencies: [DBLayer, S3Service.Default, FavoriteService.Default],

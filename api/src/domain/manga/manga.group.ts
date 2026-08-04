@@ -1,4 +1,4 @@
-import { HttpApiEndpoint, HttpApiGroup } from "@effect/platform";
+import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "@effect/platform";
 import { Schema } from "effect";
 import { Authentication } from "../../auth/auth.middleware.js";
 import {
@@ -26,6 +26,12 @@ export class MangaApiGroup extends HttpApiGroup.make("manga")
 	.add(
 		HttpApiEndpoint.get("getManga", "/manga/:mangaId")
 			.addSuccess(Manga)
+			.middleware(Authentication)
+			.setPath(MangaPath),
+	)
+	.add(
+		HttpApiEndpoint.get("getMangaCover", "/manga/:mangaId/cover")
+			.addSuccess(HttpApiSchema.Empty(302))
 			.middleware(Authentication)
 			.setPath(MangaPath),
 	)

@@ -1,0 +1,13 @@
+.git
+**/node_modules
+**/dist
+**/target
+**/*.log
+.env
+.env.prod
+.claude
+web/.tanstack
+manga-fetcher/index.node
+manga-fetcher/lib
+http_to_epub/out
+http_to_epub/out.json

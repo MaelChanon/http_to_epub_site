@@ -1,9 +1,9 @@
 {
   "version": "8",
   "dialect": "postgres",
-  "id": "99867366-88d3-4bf7-a7fa-2859ef0dc2e0",
+  "id": "217a870c-25f9-4010-95cc-42b7f09fd1f5",
   "prevIds": [
-    "93543aa5-1d5f-4665-ad78-9ef267e69df1"
+    "00000000-0000-0000-0000-000000000000"
   ],
   "ddl": [
     {
@@ -55,6 +55,21 @@
       "schema": "public"
     },
     {
+      "values": [
+        "SUSHISCAN",
+        "MANGA_ORIGINS"
+      ],
+      "name": "provider_name",
+      "entityType": "enums",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
+      "name": "favorites",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
       "isRlsEnabled": false,
       "name": "manga_genres",
       "entityType": "tables",
@@ -92,6 +107,12 @@
     },
     {
       "isRlsEnabled": false,
+      "name": "provider_mangas",
+      "entityType": "tables",
+      "schema": "public"
+    },
+    {
+      "isRlsEnabled": false,
       "name": "providers",
       "entityType": "tables",
       "schema": "public"
@@ -101,6 +122,45 @@
       "name": "users",
       "entityType": "tables",
       "schema": "public"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "user_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "favorites"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "manga_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "favorites"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "created_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "favorites"
     },
     {
       "type": "uuid",
@@ -357,6 +417,19 @@
       "default": null,
       "generated": null,
       "identity": null,
+      "name": "manga_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "chapters"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
       "name": "provider_id",
       "entityType": "columns",
       "schema": "public",
@@ -376,14 +449,14 @@
       "table": "chapters"
     },
     {
-      "type": "text",
+      "type": "timestamp with time zone",
       "typeSchema": null,
       "notNull": true,
       "dimensions": 0,
-      "default": null,
+      "default": "now()",
       "generated": null,
       "identity": null,
-      "name": "uid",
+      "name": "created_at",
       "entityType": "columns",
       "schema": "public",
       "table": "chapters"
@@ -410,6 +483,19 @@
       "generated": null,
       "identity": null,
       "name": "provider_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "manga_providers"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "tag",
       "entityType": "columns",
       "schema": "public",
       "table": "manga_providers"
@@ -477,11 +563,76 @@
       "name": "id",
       "entityType": "columns",
       "schema": "public",
-      "table": "providers"
+      "table": "provider_mangas"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "provider_id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "provider_mangas"
     },
     {
       "type": "text",
       "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "tag",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "provider_mangas"
+    },
+    {
+      "type": "text",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": null,
+      "generated": null,
+      "identity": null,
+      "name": "name",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "provider_mangas"
+    },
+    {
+      "type": "timestamp with time zone",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "now()",
+      "generated": null,
+      "identity": null,
+      "name": "updated_at",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "provider_mangas"
+    },
+    {
+      "type": "uuid",
+      "typeSchema": null,
+      "notNull": true,
+      "dimensions": 0,
+      "default": "gen_random_uuid()",
+      "generated": null,
+      "identity": null,
+      "name": "id",
+      "entityType": "columns",
+      "schema": "public",
+      "table": "providers"
+    },
+    {
+      "type": "provider_name",
+      "typeSchema": "public",
       "notNull": true,
       "dimensions": 0,
       "default": null,
@@ -560,6 +711,40 @@
     {
       "nameExplicit": false,
       "columns": [
+        "user_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "users",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "favorites_user_id_users_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "favorites"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "manga_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "mangas",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "favorites_manga_id_mangas_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "favorites"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
         "manga_id"
       ],
       "schemaTo": "public",
@@ -590,6 +775,23 @@
       "entityType": "fks",
       "schema": "public",
       "table": "manga_staff"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "manga_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "mangas",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "chapters_manga_id_mangas_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "chapters"
     },
     {
       "nameExplicit": false,
@@ -660,6 +862,34 @@
       "table": "pages"
     },
     {
+      "nameExplicit": false,
+      "columns": [
+        "provider_id"
+      ],
+      "schemaTo": "public",
+      "tableTo": "providers",
+      "columnsTo": [
+        "id"
+      ],
+      "onUpdate": "NO ACTION",
+      "onDelete": "CASCADE",
+      "name": "provider_mangas_provider_id_providers_id_fkey",
+      "entityType": "fks",
+      "schema": "public",
+      "table": "provider_mangas"
+    },
+    {
+      "columns": [
+        "user_id",
+        "manga_id"
+      ],
+      "nameExplicit": false,
+      "name": "favorites_pkey",
+      "entityType": "pks",
+      "schema": "public",
+      "table": "favorites"
+    },
+    {
       "columns": [
         "manga_id",
         "genre"
@@ -726,6 +956,16 @@
         "id"
       ],
       "nameExplicit": false,
+      "name": "provider_mangas_pkey",
+      "schema": "public",
+      "table": "provider_mangas",
+      "entityType": "pks"
+    },
+    {
+      "columns": [
+        "id"
+      ],
+      "nameExplicit": false,
       "name": "providers_pkey",
       "schema": "public",
       "table": "providers",
@@ -740,6 +980,43 @@
       "schema": "public",
       "table": "users",
       "entityType": "pks"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "manga_id",
+        "provider_id",
+        "number"
+      ],
+      "nullsNotDistinct": false,
+      "name": "chapters_manga_provider_number",
+      "entityType": "uniques",
+      "schema": "public",
+      "table": "chapters"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "chapter_id",
+        "number"
+      ],
+      "nullsNotDistinct": false,
+      "name": "pages_chapter_number",
+      "entityType": "uniques",
+      "schema": "public",
+      "table": "pages"
+    },
+    {
+      "nameExplicit": true,
+      "columns": [
+        "provider_id",
+        "tag"
+      ],
+      "nullsNotDistinct": false,
+      "name": "provider_mangas_provider_tag",
+      "entityType": "uniques",
+      "schema": "public",
+      "table": "provider_mangas"
     },
     {
       "nameExplicit": false,
@@ -761,6 +1038,17 @@
       "name": "mangas_manga_id_key",
       "schema": "public",
       "table": "mangas",
+      "entityType": "uniques"
+    },
+    {
+      "nameExplicit": false,
+      "columns": [
+        "name"
+      ],
+      "nullsNotDistinct": false,
+      "name": "providers_name_key",
+      "schema": "public",
+      "table": "providers",
       "entityType": "uniques"
     }
   ],
