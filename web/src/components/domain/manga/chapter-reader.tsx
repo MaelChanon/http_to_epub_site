@@ -125,7 +125,7 @@ export function ChapterReader({
 	const ready = loadedCount > 0;
 
 	return (
-		<div className="flex min-h-screen flex-col bg-(--bg)">
+		<div className="flex h-screen flex-col overflow-hidden bg-(--bg)">
 			<div className="sticky top-0 z-30 flex items-center gap-3.5 border-b border-(--line) bg-(--bg-elev) px-5 py-3">
 				<Link
 					to="/manga/$mangaId"
@@ -185,7 +185,7 @@ export function ChapterReader({
 			</div>
 
 			{!ready && (
-				<div className="flex flex-1 items-center justify-center p-5">
+				<div className="flex flex-1 min-h-0 items-center justify-center p-5">
 					<p className="font-mono text-[12px] text-(--ink-muted)">
 						{isPending ? "loading chapter…" : "no pages found for this chapter"}
 					</p>
@@ -193,12 +193,12 @@ export function ChapterReader({
 			)}
 
 			{ready && mode === "paged" && (
-				<div className="relative flex flex-1 items-center justify-center overflow-hidden p-5">
-					<div className="relative mx-auto flex w-4/5 items-center justify-center">
+				<div className="relative flex flex-1 min-h-0 items-center justify-center overflow-hidden p-5">
+					<div className="relative mx-auto flex h-full w-full max-w-5xl items-center justify-center">
 						<img
 							src={pages[pageIndex]}
 							alt={`Page ${pageIndex + 1}`}
-							className="h-auto w-full object-contain"
+							className="h-full max-h-full w-full max-w-full object-contain"
 						/>
 						<button
 							type="button"
@@ -220,7 +220,7 @@ export function ChapterReader({
 			)}
 
 			{ready && mode === "scroll" && (
-				<div className="flex flex-col items-center py-5">
+				<div className="flex flex-1 min-h-0 flex-col items-center overflow-y-auto py-5">
 					{pages.slice(0, loadedCount).map((src, i) => (
 						<div
 							key={src}
