@@ -1,8 +1,9 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useMutation } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
+import { authKeys } from "@/auth/auth.queries";
 import { AuthCard } from "@/components/auth/auth-card";
 import { PasswordField } from "@/components/auth/password-field";
 import { TextField } from "@/components/auth/text-field";
@@ -23,6 +24,7 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 
 function LoginPage() {
 	const navigate = useNavigate();
+	const queryClient = useQueryClient();
 	const {
 		register,
 		handleSubmit,
@@ -34,7 +36,10 @@ function LoginPage() {
 
 	const mutation = useMutation({
 		mutationFn: login,
-		onSuccess: () => navigate({ to: "/" }),
+		onSuccess: (user) => {
+			queryClient.setQueryData(authKeys.currentUser(), user);
+			navigate({ to: "/" });
+		},
 	});
 
 	return (

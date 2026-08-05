@@ -23,7 +23,7 @@ import type {
 	MangaProviderName,
 	ProviderMangaSummary,
 } from "@/lib/api";
-import { formatEnumLabel, slugify } from "./manga.util";
+import { formatEnumLabel } from "./manga.util";
 import {
 	useSearchProviderCatalog,
 	useSyncMangaChapters,
@@ -56,9 +56,9 @@ export function AddProviderDialog({
 	if (open !== wasOpen) {
 		setWasOpen(open);
 		if (open) {
-			const defaultQuery = slugify(
-				manga.titleEnglish ?? manga.titleRomaji ?? manga.titleNative,
-			);
+			const defaultQuery =
+				manga.titleRomaji ?? manga.titleEnglish ?? manga.titleNative;
+			console.log(manga);
 			setProvider(missing[0]);
 			setQuery(defaultQuery);
 			setDebouncedQuery(defaultQuery);

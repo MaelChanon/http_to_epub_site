@@ -194,11 +194,11 @@ export function ChapterReader({
 
 			{ready && mode === "paged" && (
 				<div className="relative flex flex-1 items-center justify-center overflow-hidden p-5">
-					<div className="relative flex h-full w-full items-center justify-center">
+					<div className="relative mx-auto flex w-4/5 items-center justify-center">
 						<img
 							src={pages[pageIndex]}
 							alt={`Page ${pageIndex + 1}`}
-							className="max-h-full max-w-full object-contain"
+							className="h-auto w-full object-contain"
 						/>
 						<button
 							type="button"
