@@ -41,7 +41,7 @@ function AdminUsersPage() {
 		<div className="min-h-screen">
 			<Header />
 
-			<main className="mx-auto max-w-[880px] px-8 py-10">
+			<main className="mx-auto max-w-[880px] px-4 py-10 sm:px-8">
 				<div className="flex items-end justify-between gap-4 border-b border-(--line) pb-5">
 					<div>
 						<div className="font-mono text-[10.5px] tracking-[0.08em] text-(--brand) uppercase">

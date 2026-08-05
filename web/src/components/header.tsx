@@ -20,23 +20,23 @@ export function Header() {
 
 	return (
 		<header className="sticky top-0 z-20 border-b border-(--line) bg-(--bg)">
-			<div className="mx-auto flex h-16 max-w-[1440px] items-center gap-6 px-8">
+			<div className="mx-auto flex h-14 max-w-[1440px] items-center gap-3 px-4 sm:h-16 sm:gap-6 sm:px-8">
 				<Link
 					to="/"
-					className="flex items-center gap-2.5 font-mono text-[13px] font-medium whitespace-nowrap text-(--ink)"
+					className="flex shrink-0 items-center gap-2.5 font-mono text-[13px] font-medium whitespace-nowrap text-(--ink)"
 				>
 					<div className="grid size-7 place-items-center rounded-[7px] bg-(--ink) font-mono text-[11px] font-semibold text-(--bg)">
 						h
 					</div>
-					<span>http</span>
-					<span className="mx-0.5 text-(--ink-muted)">→</span>
-					<span>epub</span>
+					<span className="hidden sm:inline">http</span>
+					<span className="mx-0.5 hidden text-(--ink-muted) sm:inline">→</span>
+					<span className="hidden sm:inline">epub</span>
 				</Link>
 
-				<nav className="flex items-center gap-0.5">
+				<nav className="flex min-w-0 items-center gap-0.5 overflow-x-auto">
 					<Link
 						to="/"
-						className={`rounded-md px-3 py-2 text-[13px] font-medium transition-colors ${
+						className={`shrink-0 rounded-md px-2.5 py-2 text-[13px] font-medium whitespace-nowrap transition-colors sm:px-3 ${
 							pathname === "/" && !favoritesOn
 								? "bg-(--bg-elev-2) text-(--ink)"
 								: "text-(--ink-soft) hover:bg-(--bg-elev-2) hover:text-(--ink)"
@@ -47,14 +47,14 @@ export function Header() {
 					<button
 						type="button"
 						disabled
-						className="cursor-not-allowed rounded-md px-3 py-2 text-[13px] font-medium text-(--ink-muted) opacity-50"
+						className="hidden shrink-0 cursor-not-allowed rounded-md px-2.5 py-2 text-[13px] font-medium text-(--ink-muted) opacity-50 sm:block sm:px-3"
 					>
 						Library
 					</button>
 					<Link
 						to="/"
 						search={{ favorites: true }}
-						className={`rounded-md px-3 py-2 text-[13px] font-medium transition-colors ${
+						className={`shrink-0 rounded-md px-2.5 py-2 text-[13px] font-medium whitespace-nowrap transition-colors sm:px-3 ${
 							favoritesOn
 								? "bg-(--bg-elev-2) text-(--ink)"
 								: "text-(--ink-soft) hover:bg-(--bg-elev-2) hover:text-(--ink)"
@@ -65,7 +65,7 @@ export function Header() {
 					{currentUser?.isAdmin && (
 						<Link
 							to="/admin/users"
-							className={`rounded-md px-3 py-2 text-[13px] font-medium transition-colors ${
+							className={`shrink-0 rounded-md px-2.5 py-2 text-[13px] font-medium whitespace-nowrap transition-colors sm:px-3 ${
 								pathname === "/admin/users"
 									? "bg-(--bg-elev-2) text-(--ink)"
 									: "text-(--ink-soft) hover:bg-(--bg-elev-2) hover:text-(--ink)"
@@ -80,7 +80,7 @@ export function Header() {
 					<AniListSearchBar />
 				</div>
 
-				<div className="ml-auto flex items-center gap-2">
+				<div className="ml-auto flex shrink-0 items-center gap-2">
 					<Button
 						type="button"
 						variant="outline"
@@ -92,6 +92,10 @@ export function Header() {
 						{theme === "dark" ? <IconSun /> : <IconMoon />}
 					</Button>
 				</div>
+			</div>
+
+			<div className="border-t border-(--line) px-4 py-2.5 sm:hidden">
+				<AniListSearchBar />
 			</div>
 		</header>
 	);

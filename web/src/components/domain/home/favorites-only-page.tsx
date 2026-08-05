@@ -17,7 +17,7 @@ export function FavoritesOnlyPage() {
 		<div className="min-h-screen">
 			<Header />
 			<main>
-				<div className="mx-auto max-w-[1440px] px-8 pt-8">
+				<div className="mx-auto max-w-[1440px] px-4 pt-8 sm:px-8">
 					<SectionHeader
 						num="[favorites]"
 						title="Favorites"

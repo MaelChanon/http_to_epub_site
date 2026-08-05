@@ -34,7 +34,7 @@ function IndexPage() {
 			<Header />
 
 			<main>
-				<div className="mx-auto max-w-[1440px] px-8">
+				<div className="mx-auto max-w-[1440px] px-4 sm:px-8">
 					<NewDropsSection />
 					<FavoritesSection />
 					<BrowseSection />

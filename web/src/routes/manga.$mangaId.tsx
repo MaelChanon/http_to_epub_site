@@ -44,7 +44,7 @@ function MangaDetail({ mangaId }: { mangaId: AniListId }) {
 		<div className="min-h-screen">
 			<Header />
 
-			<main className="mx-auto max-w-[1440px] px-8">
+			<main className="mx-auto max-w-[1440px] px-4 sm:px-8">
 				<div className="flex items-center gap-3.5 py-5">
 					<Link
 						to="/"
@@ -85,7 +85,7 @@ function MangaDetail({ mangaId }: { mangaId: AniListId }) {
 
 function InvalidMangaId() {
 	return (
-		<main className="mx-auto max-w-[1440px] px-8 py-20 text-center">
+		<main className="mx-auto max-w-[1440px] px-4 py-20 text-center sm:px-8">
 			<h2 className="text-lg font-semibold text-(--ink)">Invalid manga id</h2>
 			<p className="mt-1 text-[13px] text-(--ink-muted)">
 				The manga id in the URL must be a number.

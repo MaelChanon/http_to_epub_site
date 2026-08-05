@@ -12,9 +12,10 @@ export function useTheme() {
 	const [theme, setTheme] = useState<Theme>(readStoredTheme);
 
 	function toggleTheme() {
-		setTheme((current) => (current === "dark" ? "light" : "dark"));
-		document.documentElement.dataset.theme = theme;
-		localStorage.setItem(STORAGE_KEY, theme);
+		const next = theme === "dark" ? "light" : "dark";
+		setTheme(next);
+		document.documentElement.dataset.theme = next;
+		localStorage.setItem(STORAGE_KEY, next);
 	}
 
 	return { theme, toggleTheme };

@@ -126,7 +126,7 @@ export function ChapterReader({
 
 	return (
 		<div className="flex h-screen flex-col overflow-hidden bg-(--bg)">
-			<div className="sticky top-0 z-30 flex items-center gap-3.5 border-b border-(--line) bg-(--bg-elev) px-5 py-3">
+			<div className="sticky top-0 z-30 flex flex-wrap items-center gap-x-2.5 gap-y-2 border-b border-(--line) bg-(--bg-elev) px-3 py-2 sm:gap-x-3.5 sm:px-5 sm:py-3">
 				<Link
 					to="/manga/$mangaId"
 					params={{ mangaId }}
@@ -135,7 +135,7 @@ export function ChapterReader({
 					<IconArrowLeft /> back
 				</Link>
 
-				<span className="min-w-0 truncate font-mono text-[13px] font-medium text-(--ink)">
+				<span className="min-w-0 flex-1 truncate font-mono text-[13px] font-medium text-(--ink) sm:flex-none">
 					{title}
 				</span>
 
@@ -153,7 +153,7 @@ export function ChapterReader({
 					</select>
 				)}
 
-				<div className="ml-auto flex items-center gap-3 font-mono text-[11px] text-(--ink-muted)">
+				<div className="ml-auto flex shrink-0 items-center gap-2 font-mono text-[11px] text-(--ink-muted) sm:gap-3">
 					{total > 0 && (
 						<span className="tabular-nums">
 							page {pageIndex + 1} / {total}
@@ -193,7 +193,7 @@ export function ChapterReader({
 			)}
 
 			{ready && mode === "paged" && (
-				<div className="relative flex flex-1 min-h-0 items-center justify-center overflow-hidden p-5">
+				<div className="relative flex flex-1 min-h-0 items-center justify-center overflow-hidden p-3 sm:p-5">
 					<div className="relative mx-auto flex h-full w-full max-w-5xl items-center justify-center">
 						<img
 							src={pages[pageIndex]}
@@ -220,7 +220,7 @@ export function ChapterReader({
 			)}
 
 			{ready && mode === "scroll" && (
-				<div className="flex flex-1 min-h-0 flex-col items-center overflow-y-auto py-5">
+				<div className="flex flex-1 min-h-0 flex-col items-center overflow-y-auto px-3 py-3 sm:px-0 sm:py-5">
 					{pages.slice(0, loadedCount).map((src, i) => (
 						<div
 							key={src}
