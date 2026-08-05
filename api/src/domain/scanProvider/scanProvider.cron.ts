@@ -1,12 +1,14 @@
 import { Effect, Layer, Schedule } from "effect";
+import { appConfig } from "../../config.js";
 import { ProviderCatalogService } from "./providerCatalog.service.js";
 import { PROVIDERS } from "./scanProvider.domain.js";
 
 const providerCatalogCronLoop = Effect.gen(function* () {
 	const providerCatalog = yield* ProviderCatalogService;
-	Effect.logInfo("cron tick start");
+	const provider = (yield* appConfig).disableAnilistFetching ? [] : PROVIDERS;
+	yield* Effect.logInfo("cron tick start");
 	yield* Effect.forEach(
-		PROVIDERS,
+		provider,
 		(provider) =>
 			providerCatalog.refreshCatalog(provider).pipe(
 				Effect.retry(

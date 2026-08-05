@@ -18,6 +18,7 @@ class AppConfig {
 		readonly s3SecretAccessKey: string,
 		readonly s3ForcePathStyle: boolean,
 		readonly corsAllowedOrigins: readonly string[],
+		readonly disableAnilistFetching: boolean,
 	) {}
 }
 export const appConfig = Config.map(
@@ -48,6 +49,7 @@ export const appConfig = Config.map(
 		Config.string("CORS_ALLOWED_ORIGINS").pipe(
 			Config.withDefault("http://localhost:5173"),
 		),
+		Config.boolean("DISABLE_ANILIST_FETCHING").pipe(Config.withDefault(false)),
 	]),
 	([
 		host,
@@ -64,6 +66,7 @@ export const appConfig = Config.map(
 		s3SecretAccessKey,
 		s3ForcePathStyle,
 		corsAllowedOrigins,
+		disableAnilistFetching,
 	]) =>
 		new AppConfig(
 			host,
@@ -83,5 +86,6 @@ export const appConfig = Config.map(
 				.split(",")
 				.map((origin) => origin.trim())
 				.filter((origin) => origin.length > 0),
+			disableAnilistFetching,
 		),
 );
