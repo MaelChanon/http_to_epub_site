@@ -190,7 +190,7 @@ export function buildProviderArchive(
 ): Promise<ProviderArchive> {
 	return Effect.runPromise(
 		client.scanProvider
-			.buildMangaProviderArchive({ path: { mangaId, provider } })
+			.getMangaProviderArchive({ path: { mangaId, provider } })
 			.pipe(Effect.catchAll(toApiError)),
 	);
 }

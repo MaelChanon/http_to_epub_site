@@ -1,10 +1,11 @@
 import { HttpApiBuilder, HttpServerResponse } from "@effect/platform";
 import { Effect } from "effect";
 import { CurrentUser } from "../../auth/auth.middleware.js";
-import { Api } from "../../http/api.js";
+import { Api, ProviderArchive } from "../../http/api.js";
 import { toHttpError } from "../../http/error.js";
 import { MangaService } from "../manga/manga.service.js";
 import type { AniListId } from "../mangaProvider/mangaProvider.domain.js";
+import { S3Service } from "../s3/s3.service.js";
 import { requirePermission } from "../user/permission.js";
 import { ProviderCatalogService } from "./providerCatalog.service.js";
 import { ScanProviderService } from "./scanProvider.service.js";
@@ -17,6 +18,7 @@ export const ScanProviderApiGroupLive = HttpApiBuilder.group(
 			const mangaService = yield* MangaService;
 			const scanProviderService = yield* ScanProviderService;
 			const providerCatalogService = yield* ProviderCatalogService;
+			const s3 = yield* S3Service;
 
 			function getManga(mangaId: AniListId) {
 				return Effect.flatMap(CurrentUser, (user) =>
@@ -103,10 +105,17 @@ export const ScanProviderApiGroupLive = HttpApiBuilder.group(
 							.pipe(Effect.catchAll(toHttpError));
 					}),
 				)
-				.handle("buildMangaProviderArchive", ({ path }) =>
+				.handle("getMangaProviderArchive", ({ path }) =>
 					getManga(path.mangaId).pipe(
 						Effect.flatMap((manga) =>
-							scanProviderService.buildProviderArchive(manga.id, path.provider),
+							Effect.gen(function* () {
+								const key = yield* scanProviderService.getProviderArchive(
+									manga.id,
+									path.provider,
+								);
+								const url = yield* s3.getUrl(key);
+								return new ProviderArchive({ url });
+							}),
 						),
 						Effect.catchAll(toHttpError),
 					),

@@ -104,7 +104,7 @@ export class ScanProviderApiGroup extends HttpApiGroup.make("scanProvider")
 	)
 	.add(
 		HttpApiEndpoint.post(
-			"buildMangaProviderArchive",
+			"getMangaProviderArchive",
 			"/scan/:mangaId/providers/:provider/chapters/archive",
 		)
 			.addSuccess(ProviderArchive)

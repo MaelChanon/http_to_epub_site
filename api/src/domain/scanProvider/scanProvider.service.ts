@@ -1,5 +1,5 @@
 import { and, eq, sql } from "drizzle-orm";
-import { Data, Effect, Option } from "effect";
+import { Data, Effect, Option, Ref } from "effect";
 import { DB, DBLayer } from "../../../drizzle/db.js";
 import { chapters, pages } from "../../../drizzle/schema/providers.js";
 import { SQLError, toSQLError } from "../../../drizzle/schema/utils.js";
@@ -93,49 +93,66 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 						),
 					);
 			}
+			function getProviderArchive(mangaDbId: MangaDbId, provider: string) {
+				return Effect.succeed(`${mangaDbId}/archives/${provider}.zip`);
+			}
 
 			function processChapter(
 				mangaDbId: MangaDbId,
 				providerId: string,
 				chapter: { chapterNumber: number; pages: readonly string[] },
 			) {
-				return Effect.gen(function* () {
-					const pagePaths = yield* Effect.forEach(
-						chapter.pages,
-						(pageUrl, index) => {
-							const key = `${mangaDbId}/${chapter.chapterNumber}/${index + 1}.${new URL(pageUrl).pathname.split(".").pop() || "jpg"}`;
-							return s3
-								.fetchAndUpload(key, pageUrl)
-								.pipe(Effect.as({ number: index + 1, path: key }));
-						},
-						{ concurrency: 5 },
-					);
+				return Ref.make<string[]>([]).pipe(
+					Effect.flatMap((uploadedKeys) =>
+						Effect.gen(function* () {
+							const pagePaths = yield* Effect.forEach(
+								chapter.pages,
+								(pageUrl, index) => {
+									const key = `${mangaDbId}/${chapter.chapterNumber}/${index + 1}.${new URL(pageUrl).pathname.split(".").pop() || "jpg"}`;
+									return s3.fetchAndUpload(key, pageUrl).pipe(
+										Effect.tap(() =>
+											Ref.update(uploadedKeys, (keys) => [...keys, key]),
+										),
+										Effect.as({ number: index + 1, path: key }),
+									);
+								},
+								{ concurrency: 5 },
+							);
 
-					const chapterRow = yield* upsertChapterRow(
-						mangaDbId,
-						providerId,
-						chapter.chapterNumber,
-					);
+							const chapterRow = yield* upsertChapterRow(
+								mangaDbId,
+								providerId,
+								chapter.chapterNumber,
+							);
 
-					if (pagePaths.length === 0) {
-						return;
-					}
+							if (pagePaths.length === 0) {
+								return;
+							}
 
-					yield* db
-						.insert(pages)
-						.values(
-							pagePaths.map((p) => ({
-								chapterId: chapterRow.id,
-								number: p.number,
-								path: p.path,
-							})),
-						)
-						.onConflictDoUpdate({
-							target: [pages.chapterId, pages.number],
-							set: { path: sql`excluded.path` },
-						})
-						.pipe(Effect.mapError(toSQLError));
-				});
+							yield* db
+								.insert(pages)
+								.values(
+									pagePaths.map((p) => ({
+										chapterId: chapterRow.id,
+										number: p.number,
+										path: p.path,
+									})),
+								)
+								.onConflictDoUpdate({
+									target: [pages.chapterId, pages.number],
+									set: { path: sql`excluded.path` },
+								})
+								.pipe(Effect.mapError(toSQLError));
+						}).pipe(
+							Effect.onError(() =>
+								Ref.get(uploadedKeys).pipe(
+									Effect.flatMap((keys) => s3.deleteObjects(keys)),
+									Effect.ignoreLogged,
+								),
+							),
+						),
+					),
+				);
 			}
 
 			function syncMangaChapters(
@@ -159,17 +176,17 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 						provider,
 						slug,
 					);
-
 					const rawChapters = yield* mangaFetcher.getMangaChapters(
 						slug,
 						provider,
 					);
-
 					yield* Effect.forEach(
 						rawChapters,
 						(chapter) => processChapter(mangaDbId, providerId, chapter),
 						{ concurrency: 3 },
 					);
+
+					yield* buildProviderArchive(mangaDbId, provider).pipe(Effect.asVoid);
 				});
 			}
 
@@ -286,8 +303,9 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 					const paths = rows.flatMap((row) =>
 						row.pages.map((page) => page.path),
 					);
+					const archiveKey = `${mangaDbId}/archives/${provider}.zip`;
 
-					yield* s3.deleteObjects(paths);
+					yield* s3.deleteObjects([...paths, archiveKey]);
 
 					yield* db
 						.delete(chapters)
@@ -454,7 +472,7 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 
 					const zip = yield* archive.buildZip(entries);
 
-					const key = `${mangaDbId}/archives/${provider}.zip`;
+					const key = yield* getProviderArchive(mangaDbId, provider);
 					yield* s3.upload(key, zip, "application/zip");
 					const url = yield* s3.getUrl(key);
 
@@ -477,6 +495,7 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 				getChapterPagePresignedUrl,
 				deleteMangaProviderChapters,
 				buildProviderArchive,
+				getProviderArchive,
 				hasMangaProviderLink,
 			} as const;
 		}),
