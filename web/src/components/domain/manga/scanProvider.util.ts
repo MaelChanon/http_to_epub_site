@@ -1,4 +1,14 @@
-import { MangaProviderName } from "@/lib/api";
+import { MangaProviderName, type MangaProviderStatus } from "@/lib/api";
+
+const TRANSITIONING_STATUSES = new Set<MangaProviderStatus>([
+	"CREATING",
+	"UPDATING",
+	"DELETING",
+]);
+
+export function isProviderTransitioning(status: MangaProviderStatus) {
+	return TRANSITIONING_STATUSES.has(status);
+}
 
 export const ALL_PROVIDERS = MangaProviderName.literals;
 

@@ -4,12 +4,19 @@ import {
 	useQuery,
 	useQueryClient,
 } from "@tanstack/react-query";
-import type { AniListId, MangaProviderName } from "@/lib/api";
+import { Schema } from "effect";
+import { useEffect } from "react";
+import type {
+	AniListId,
+	MangaProviderChapters,
+	MangaProviderName,
+} from "@/lib/api";
 import {
 	buildProviderArchive,
 	deleteMangaProviderChapters,
 	getChapterPages,
 	getMangaProviders,
+	ScanEvent,
 	searchProviderCatalog,
 	syncMangaChapters,
 } from "@/lib/api";
@@ -93,6 +100,41 @@ export function useDeleteMangaProviderChapters(mangaId: AniListId) {
 			});
 		},
 	});
+}
+
+const decodeScanEvent = Schema.decodeUnknownSync(ScanEvent);
+
+export function useMangaProviderEvents(mangaId: AniListId) {
+	const queryClient = useQueryClient();
+
+	useEffect(() => {
+		const source = new EventSource(`/api/manga/${mangaId}/events`, {
+			withCredentials: true,
+		});
+		const queryKey = scanProviderKeys.mangaProviders(mangaId);
+
+		source.onmessage = (event) => {
+			const { provider, status } = decodeScanEvent(JSON.parse(event.data));
+
+			queryClient.setQueryData<readonly MangaProviderChapters[]>(
+				queryKey,
+				(old) => {
+					if (!old) {
+						return old;
+					}
+					return status === null
+						? old.filter((p) => p.provider !== provider)
+						: old.map((p) => (p.provider === provider ? { ...p, status } : p));
+				},
+			);
+
+			queryClient.invalidateQueries({ queryKey });
+		};
+
+		return () => {
+			source.close();
+		};
+	}, [mangaId, queryClient]);
 }
 
 export function useDownloadProviderArchive(mangaId: AniListId) {

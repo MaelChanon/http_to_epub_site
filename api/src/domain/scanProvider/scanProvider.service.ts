@@ -1,5 +1,5 @@
 import { and, eq, sql } from "drizzle-orm";
-import { Data, Effect, Option, Ref } from "effect";
+import { Data, Effect, Exit, Option, Ref } from "effect";
 import { DB, DBLayer } from "../../../drizzle/db.js";
 import { chapters, pages } from "../../../drizzle/schema/providers.js";
 import { SQLError, toSQLError } from "../../../drizzle/schema/utils.js";
@@ -12,11 +12,15 @@ import {
 import type { AniListId } from "../mangaProvider/mangaProvider.domain.js";
 import { S3Service } from "../s3/s3.service.js";
 import { ProviderRepository } from "./provider.repository.js";
+import { ScanEventsService } from "./scanEvents.service.js";
 import {
 	ChapterPages,
 	ChapterSummary,
+	isMangaProviderTransitioning,
 	MangaProviderChapters,
+	type MangaProviderStatus,
 	ProviderArchive,
+	ScanEvent,
 } from "./scanProvider.domain.js";
 
 export class MangaNotFoundById extends Data.TaggedError("MangaNotFoundById")<{
@@ -35,6 +39,16 @@ export class MangaProviderNotLinked extends Data.TaggedError(
 }> {
 	get internalMessage() {
 		return `Manga ${this.mangaId} has no link to provider ${this.provider}`;
+	}
+}
+
+export class MangaProviderBusy extends Data.TaggedError("MangaProviderBusy")<{
+	readonly mangaId: MangaDbId;
+	readonly provider: MangaProvider;
+	readonly status: MangaProviderStatus;
+}> {
+	get internalMessage() {
+		return `Manga ${this.mangaId} provider ${this.provider} is busy (status=${this.status})`;
 	}
 }
 
@@ -68,6 +82,7 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 			const archive = yield* ArchiveService;
 			const mangaFetcher = yield* MangaFetcherService;
 			const providerRepo = yield* ProviderRepository;
+			const scanEvents = yield* ScanEventsService;
 
 			function upsertChapterRow(
 				mangaDbId: MangaDbId,
@@ -159,6 +174,7 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 				mangaDbId: MangaDbId,
 				slug: string,
 				provider: MangaProvider,
+				isNewLink: boolean,
 			) {
 				return Effect.gen(function* () {
 					const manga = yield* db.query.mangas
@@ -171,22 +187,72 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 						);
 					}
 
+					const existingLink = yield* providerRepo.findMangaProviderLink(
+						mangaDbId,
+						provider,
+					);
+					if (
+						Option.isSome(existingLink) &&
+						isMangaProviderTransitioning(existingLink.value.status)
+					) {
+						return yield* Effect.fail(
+							new MangaProviderBusy({
+								mangaId: mangaDbId,
+								provider,
+								status: existingLink.value.status,
+							}),
+						);
+					}
+
+					const startStatus: MangaProviderStatus = isNewLink
+						? "CREATING"
+						: "UPDATING";
+
 					const providerId = yield* providerRepo.ensureMangaProviderLink(
 						mangaDbId,
 						provider,
 						slug,
+						startStatus,
 					);
-					const rawChapters = yield* mangaFetcher.getMangaChapters(
-						slug,
-						provider,
-					);
-					yield* Effect.forEach(
-						rawChapters,
-						(chapter) => processChapter(mangaDbId, providerId, chapter),
-						{ concurrency: 3 },
+					yield* scanEvents.publish(
+						mangaDbId,
+						new ScanEvent({ provider, status: startStatus }),
 					);
 
-					yield* buildProviderArchive(mangaDbId, provider).pipe(Effect.asVoid);
+					yield* Effect.gen(function* () {
+						const rawChapters = yield* mangaFetcher.getMangaChapters(
+							slug,
+							provider,
+						);
+						yield* Effect.forEach(
+							rawChapters,
+							(chapter) => processChapter(mangaDbId, providerId, chapter),
+							{ concurrency: 3 },
+						);
+
+						yield* buildProviderArchive(mangaDbId, provider).pipe(
+							Effect.asVoid,
+						);
+					}).pipe(
+						Effect.onExit((exit) => {
+							const finalStatus: MangaProviderStatus = Exit.isSuccess(exit)
+								? "UPDATED"
+								: "FAILED";
+							return Effect.andThen(
+								providerRepo.setStatus(mangaDbId, providerId, finalStatus),
+								scanEvents.publish(
+									mangaDbId,
+									new ScanEvent({ provider, status: finalStatus }),
+								),
+							).pipe(
+								Effect.catchAllCause((cause) =>
+									Effect.logError(
+										`failed to resolve manga_providers status to ${finalStatus} for manga=${mangaDbId} provider=${provider}: ${cause}`,
+									),
+								),
+							);
+						}),
+					);
 				});
 			}
 
@@ -261,11 +327,6 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 							.pipe(Effect.mapError(toSQLError)),
 					]);
 
-					const tagByProvider = new Map<MangaProvider, string>();
-					for (const link of links) {
-						tagByProvider.set(link.provider.name, link.tag);
-					}
-
 					const chaptersByProvider = new Map<MangaProvider, ChapterSummary[]>();
 					for (const row of rows) {
 						const provider = row.provider.name;
@@ -274,13 +335,13 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 						chaptersByProvider.set(provider, summaries);
 					}
 
-					return Array.from(
-						chaptersByProvider,
-						([provider, chapters]) =>
+					return links.map(
+						(link) =>
 							new MangaProviderChapters({
-								provider,
-								chapters,
-								tag: tagByProvider.get(provider) ?? "none",
+								provider: link.provider.name,
+								chapters: chaptersByProvider.get(link.provider.name) ?? [],
+								tag: link.tag,
+								status: link.status,
 							}),
 					);
 				});
@@ -291,31 +352,81 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 				provider: MangaProvider,
 			) {
 				return Effect.gen(function* () {
-					const providerId = yield* resolveProviderId(mangaDbId, provider);
-
-					const rows = yield* db.query.chapters
-						.findMany({
-							where: { mangaId: mangaDbId, providerId },
-							with: { pages: true },
-						})
-						.pipe(Effect.mapError(toSQLError));
-
-					const paths = rows.flatMap((row) =>
-						row.pages.map((page) => page.path),
+					const link = yield* providerRepo.findMangaProviderLink(
+						mangaDbId,
+						provider,
 					);
-					const archiveKey = `${mangaDbId}/archives/${provider}.zip`;
-
-					yield* s3.deleteObjects([...paths, archiveKey]);
-
-					yield* db
-						.delete(chapters)
-						.where(
-							and(
-								eq(chapters.mangaId, mangaDbId),
-								eq(chapters.providerId, providerId),
+					const { providerId, status } = yield* Option.match(link, {
+						onNone: () =>
+							Effect.fail(
+								new MangaProviderNotLinked({ mangaId: mangaDbId, provider }),
 							),
-						)
-						.pipe(Effect.mapError(toSQLError));
+						onSome: Effect.succeed,
+					});
+					if (isMangaProviderTransitioning(status)) {
+						return yield* Effect.fail(
+							new MangaProviderBusy({ mangaId: mangaDbId, provider, status }),
+						);
+					}
+
+					yield* Effect.andThen(
+						providerRepo.setStatus(mangaDbId, providerId, "DELETING"),
+						scanEvents.publish(
+							mangaDbId,
+							new ScanEvent({ provider, status: "DELETING" }),
+						),
+					);
+
+					yield* Effect.gen(function* () {
+						const rows = yield* db.query.chapters
+							.findMany({
+								where: { mangaId: mangaDbId, providerId },
+								with: { pages: true },
+							})
+							.pipe(Effect.mapError(toSQLError));
+
+						const paths = rows.flatMap((row) =>
+							row.pages.map((page) => page.path),
+						);
+						const archiveKey = `${mangaDbId}/archives/${provider}.zip`;
+
+						yield* s3.deleteObjects([...paths, archiveKey]);
+
+						yield* db
+							.delete(chapters)
+							.where(
+								and(
+									eq(chapters.mangaId, mangaDbId),
+									eq(chapters.providerId, providerId),
+								),
+							)
+							.pipe(Effect.mapError(toSQLError));
+					}).pipe(
+						Effect.onExit((exit) =>
+							(Exit.isSuccess(exit)
+								? Effect.andThen(
+										providerRepo.deleteMangaProviderLink(mangaDbId, providerId),
+										scanEvents.publish(
+											mangaDbId,
+											new ScanEvent({ provider, status: null }),
+										),
+									)
+								: Effect.andThen(
+										providerRepo.setStatus(mangaDbId, providerId, "FAILED"),
+										scanEvents.publish(
+											mangaDbId,
+											new ScanEvent({ provider, status: "FAILED" }),
+										),
+									)
+							).pipe(
+								Effect.catchAllCause((cause) =>
+									Effect.logError(
+										`failed to resolve manga_providers status after delete for manga=${mangaDbId} provider=${provider}: ${cause}`,
+									),
+								),
+							),
+						),
+					);
 				});
 			}
 
@@ -505,6 +616,7 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 			ArchiveService.Default,
 			MangaFetcherService.Default,
 			ProviderRepository.Default,
+			ScanEventsService.Default,
 		],
 	},
 ) {}

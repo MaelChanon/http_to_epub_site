@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { and, eq, sql } from "drizzle-orm";
 import { Effect, Option } from "effect";
 import type { MangaProvider } from "manga-fetcher";
 import { DB, DBLayer } from "../../../drizzle/db.js";
@@ -8,7 +8,10 @@ import {
 } from "../../../drizzle/schema/providers.js";
 import { SQLError, toSQLError } from "../../../drizzle/schema/utils.js";
 import type { MangaDbId } from "../manga/manga.domain.js";
-import type { MangaProviderName } from "./scanProvider.domain.js";
+import type {
+	MangaProviderName,
+	MangaProviderStatus,
+} from "./scanProvider.domain.js";
 
 export class ProviderRepository extends Effect.Service<ProviderRepository>()(
 	"api/ProviderRepository",
@@ -68,6 +71,7 @@ export class ProviderRepository extends Effect.Service<ProviderRepository>()(
 				mangaDbId: MangaDbId,
 				name: MangaProvider,
 				tag: string,
+				status: MangaProviderStatus,
 			) {
 				return Effect.gen(function* () {
 					const db = yield* DB;
@@ -75,14 +79,81 @@ export class ProviderRepository extends Effect.Service<ProviderRepository>()(
 
 					yield* db
 						.insert(mangaProviders)
-						.values({ mangaId: mangaDbId, providerId, tag })
+						.values({ mangaId: mangaDbId, providerId, tag, status })
 						.onConflictDoUpdate({
 							target: [mangaProviders.mangaId, mangaProviders.providerId],
-							set: { tag: sql`excluded.tag` },
+							set: { tag: sql`excluded.tag`, status: sql`excluded.status` },
 						})
 						.pipe(Effect.mapError(toSQLError));
 
 					return providerId;
+				});
+			}
+
+			function setStatus(
+				mangaDbId: MangaDbId,
+				providerId: string,
+				status: MangaProviderStatus,
+			) {
+				return Effect.gen(function* () {
+					const db = yield* DB;
+					yield* db
+						.update(mangaProviders)
+						.set({ status })
+						.where(
+							and(
+								eq(mangaProviders.mangaId, mangaDbId),
+								eq(mangaProviders.providerId, providerId),
+							),
+						)
+						.pipe(Effect.mapError(toSQLError));
+				});
+			}
+
+			function deleteMangaProviderLink(
+				mangaDbId: MangaDbId,
+				providerId: string,
+			) {
+				return Effect.gen(function* () {
+					const db = yield* DB;
+					yield* db
+						.delete(mangaProviders)
+						.where(
+							and(
+								eq(mangaProviders.mangaId, mangaDbId),
+								eq(mangaProviders.providerId, providerId),
+							),
+						)
+						.pipe(Effect.mapError(toSQLError));
+				});
+			}
+
+			function findMangaProviderLink(
+				mangaDbId: MangaDbId,
+				name: MangaProvider,
+			) {
+				return Effect.gen(function* () {
+					const db = yield* DB;
+					const providerId = yield* findProviderIdByName(name);
+					if (Option.isNone(providerId)) {
+						return Option.none<{
+							providerId: string;
+							status: MangaProviderStatus;
+						}>();
+					}
+
+					const row = yield* db.query.mangaProviders
+						.findFirst({
+							where: { mangaId: mangaDbId, providerId: providerId.value },
+						})
+						.pipe(Effect.mapError(toSQLError));
+
+					return row
+						? Option.some({ providerId: providerId.value, status: row.status })
+						: Option.none<{
+								providerId: string;
+								status: MangaProviderStatus;
+							}>();
 				});
 			}
 
@@ -111,7 +182,10 @@ export class ProviderRepository extends Effect.Service<ProviderRepository>()(
 				findProviderIdByName,
 				ensureProvider,
 				ensureMangaProviderLink,
+				setStatus,
+				deleteMangaProviderLink,
 				hasMangaProviderLink,
+				findMangaProviderLink,
 			} as const;
 		}),
 		dependencies: [DBLayer],

@@ -1,6 +1,7 @@
 import { Link } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
+	IconAlertTriangle,
 	IconChevronRight,
 	IconClose,
 	IconDownload,
@@ -16,6 +17,7 @@ import {
 	DialogHeader,
 	DialogTitle,
 } from "@/components/ui/dialog";
+import { StatusBars } from "@/components/ui/status-bars";
 import type { Manga, MangaProviderChapters } from "@/lib/api";
 import { AddProviderDialog } from "./add-provider-dialog";
 import type { ChapterRange } from "./manga.util";
@@ -26,7 +28,7 @@ import {
 	useMangaProviders,
 	useSyncMangaChapters,
 } from "./scanProvider.queries";
-import { missingProviders } from "./scanProvider.util";
+import { isProviderTransitioning, missingProviders } from "./scanProvider.util";
 
 const PER_PAGE = 12;
 
@@ -50,12 +52,15 @@ export function ChapterList({ manga, range }: ChapterListProps) {
 	const providerId = activeProvider ?? providers[0]?.provider;
 	const activeProviderEntry = providers.find((p) => p.provider === providerId);
 	const chapters = activeProviderEntry?.chapters ?? [];
-	const isActiveRefreshing =
-		syncMutation.isPending &&
-		syncMutation.variables?.provider === activeProviderEntry?.provider;
-	const isActiveDownloading =
-		archiveMutation.isPending &&
-		archiveMutation.variables?.provider === activeProviderEntry?.provider;
+
+	useEffect(() => {
+		if (
+			activeProvider &&
+			!providers.some((p) => p.provider === activeProvider)
+		) {
+			setActiveProvider(undefined);
+		}
+	}, [activeProvider, providers]);
 
 	const sorted = useMemo(() => {
 		const list = [...chapters];
@@ -112,6 +117,8 @@ export function ChapterList({ manga, range }: ChapterListProps) {
 					<div className="flex flex-1">
 						{providers.map((provider) => {
 							const isActive = providerId === provider.provider;
+							const isTransitioning = isProviderTransitioning(provider.status);
+							const isFailed = provider.status === "FAILED";
 							const isDeleting =
 								deleteMutation.isPending &&
 								deleteMutation.variables === provider.provider;
@@ -124,6 +131,13 @@ export function ChapterList({ manga, range }: ChapterListProps) {
 								>
 									<button
 										type="button"
+										title={
+											isTransitioning
+												? `${formatEnumLabel(provider.status)}…`
+												: isFailed
+													? "Failed — try refreshing"
+													: undefined
+										}
 										onClick={() => {
 											setActiveProvider(provider.provider);
 											setPage(0);
@@ -148,11 +162,20 @@ export function ChapterList({ manga, range }: ChapterListProps) {
 										>
 											{provider.chapters.length} ch
 										</span>
+										{isTransitioning && <StatusBars />}
+										{isFailed && (
+											<span className="flex items-center gap-1 text-destructive">
+												<IconAlertTriangle className="size-3.5" />
+												<span className="font-mono text-[10px] normal-case">
+													failed
+												</span>
+											</span>
+										)}
 									</button>
 									<button
 										type="button"
 										aria-label={`Delete ${formatEnumLabel(provider.provider)} chapters`}
-										disabled={isDeleting}
+										disabled={isDeleting || isTransitioning}
 										onClick={() => setDeleteTarget(provider)}
 										className="mr-2 grid size-6 shrink-0 place-items-center rounded-md text-(--ink-muted) hover:text-destructive disabled:opacity-50"
 									>
@@ -174,7 +197,15 @@ export function ChapterList({ manga, range }: ChapterListProps) {
 					)}
 				</div>
 			)}
-
+			{activeProviderEntry?.status === "FAILED" && (
+				<div className="mb-4 flex items-center justify-between gap-3 rounded-md border border-destructive/40 bg-destructive/10 px-3.5 py-2.5 text-[12.5px] text-destructive">
+					<span className="flex items-center gap-2">
+						<IconAlertTriangle className="size-4 shrink-0" />
+						Last sync for {formatEnumLabel(activeProviderEntry.provider)}{" "}
+						failed.
+					</span>
+				</div>
+			)}
 			<div className="mb-2.5 flex items-center justify-between gap-4">
 				<div className="flex items-center gap-1 font-mono text-[11px] tracking-[0.08em] text-(--ink-muted) uppercase">
 					<span>
@@ -188,7 +219,7 @@ export function ChapterList({ manga, range }: ChapterListProps) {
 							<button
 								type="button"
 								aria-label={`Refresh ${formatEnumLabel(activeProviderEntry.provider)}`}
-								disabled={isActiveRefreshing}
+								disabled={isProviderTransitioning(activeProviderEntry.status)}
 								onClick={() => {
 									syncMutation.mutate({
 										provider: activeProviderEntry.provider,
@@ -199,13 +230,13 @@ export function ChapterList({ manga, range }: ChapterListProps) {
 								className="ml-1 grid size-6 shrink-0 place-items-center rounded-md text-(--ink-muted) hover:text-(--ink) disabled:opacity-50"
 							>
 								<IconRefresh
-									className={`size-3.5 ${isActiveRefreshing ? "animate-spin" : ""}`}
+									className={`size-3.5 ${isProviderTransitioning(activeProviderEntry.status) ? "animate-spin" : ""}`}
 								/>
 							</button>
 							<button
 								type="button"
 								aria-label={`Download ${formatEnumLabel(activeProviderEntry.provider)} archive`}
-								disabled={isActiveDownloading}
+								disabled={isProviderTransitioning(activeProviderEntry.status)}
 								onClick={() => {
 									archiveMutation.mutate({
 										provider: activeProviderEntry.provider,
@@ -236,7 +267,6 @@ export function ChapterList({ manga, range }: ChapterListProps) {
 					</button>
 				</div>
 			</div>
-
 			<div className="flex flex-col border-t border-(--line)">
 				{pageItems.map((chapter) => {
 					const inRange =
@@ -279,7 +309,6 @@ export function ChapterList({ manga, range }: ChapterListProps) {
 					);
 				})}
 			</div>
-
 			{totalPages > 1 && (
 				<div className="flex items-center justify-between pt-3.5 font-mono text-[11px] text-(--ink-muted)">
 					<button
@@ -303,14 +332,12 @@ export function ChapterList({ manga, range }: ChapterListProps) {
 					</button>
 				</div>
 			)}
-
 			<AddProviderDialog
 				manga={manga}
 				linkedProviders={providers}
 				open={addProviderOpen}
 				onOpenChange={setAddProviderOpen}
 			/>
-
 			<Dialog
 				open={!!deleteTarget}
 				onOpenChange={(open) => !open && setDeleteTarget(undefined)}
@@ -343,9 +370,8 @@ export function ChapterList({ manga, range }: ChapterListProps) {
 								if (!deleteTarget) {
 									return;
 								}
-								deleteMutation.mutate(deleteTarget.provider, {
-									onSuccess: () => setDeleteTarget(undefined),
-								});
+								deleteMutation.mutate(deleteTarget.provider, {});
+								setDeleteTarget(undefined);
 							}}
 						>
 							Delete

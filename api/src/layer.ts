@@ -7,6 +7,7 @@ import { MangaProviderService } from "./domain/mangaProvider/mangaProvider.servi
 import { S3Service } from "./domain/s3/s3.service.js";
 import { ProviderRepository } from "./domain/scanProvider/provider.repository.js";
 import { ProviderCatalogService } from "./domain/scanProvider/providerCatalog.service.js";
+import { ScanEventsService } from "./domain/scanProvider/scanEvents.service.js";
 import { ScanProviderCronLive } from "./domain/scanProvider/scanProvider.cron.js";
 import { ScanProviderService } from "./domain/scanProvider/scanProvider.service.js";
 import { UsersRepository } from "./domain/user/user.repository.js";
@@ -27,6 +28,7 @@ const ServicesLive = Layer.mergeAll(
 	MangaService.Default,
 	FavoriteService.Default,
 	ScanProviderService.Default,
+	ScanEventsService.Default,
 	ProviderCatalogService.Default,
 	UsersRepository.Default,
 	ProviderRepository.Default,

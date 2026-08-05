@@ -121,3 +121,13 @@
 		background-color: var(--ink-muted);
 	}
 }
+
+@keyframes status-bars-pulse {
+	0%,
+	100% {
+		transform: scaleY(0.35);
+	}
+	50% {
+		transform: scaleY(1);
+	}
+}

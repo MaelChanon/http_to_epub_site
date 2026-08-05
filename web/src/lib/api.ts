@@ -31,7 +31,9 @@ export {
 	AniListId,
 	MangaGenre,
 	MangaProviderName,
+	MangaProviderStatus,
 	Permission,
+	ScanEvent,
 } from "@workspace/api";
 
 export class ApiError extends Error {}

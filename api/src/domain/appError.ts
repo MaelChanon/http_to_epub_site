@@ -21,6 +21,7 @@ import type {
 import type {
 	ChapterNotFound,
 	MangaNotFoundById,
+	MangaProviderBusy,
 	MangaProviderNotLinked,
 	PageNotFound,
 } from "./scanProvider/scanProvider.service.js";
@@ -42,6 +43,7 @@ export type DomainError =
 	| MangaNotFound
 	| MangaNotFoundById
 	| MangaProviderNotLinked
+	| MangaProviderBusy
 	| ChapterNotFound
 	| PageNotFound
 	| ImageFetchFailed

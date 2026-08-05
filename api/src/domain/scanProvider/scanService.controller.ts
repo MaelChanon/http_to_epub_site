@@ -41,7 +41,12 @@ export const ScanProviderApiGroupLive = HttpApiBuilder.group(
 							alreadyLinked ? "MANGA_PROVIDER_REFRESH" : "MANGA_PROVIDER_ADD",
 						);
 						yield* scanProviderService
-							.syncMangaChapters(manga.id, payload.slug, payload.provider)
+							.syncMangaChapters(
+								manga.id,
+								payload.slug,
+								payload.provider,
+								!alreadyLinked,
+							)
 							.pipe(Effect.catchAll(toHttpError));
 					}),
 				)

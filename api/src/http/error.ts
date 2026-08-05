@@ -26,12 +26,18 @@ export class InternalServerError extends Schema.TaggedError<InternalServerError>
 	{ message: Schema.String },
 ) {}
 
+export class ConflictError extends Schema.TaggedError<ConflictError>()(
+	"ConflictError",
+	{ message: Schema.String },
+) {}
+
 export type HttpError =
 	| NotFoundError
 	| BadRequestError
 	| InternalServerError
 	| ForbiddenError
-	| UnauthorizedError;
+	| UnauthorizedError
+	| ConflictError;
 
 export const toHttpError = (
 	err: DomainError,
@@ -72,6 +78,13 @@ export const toHttpError = (
 				),
 				Match.tag("InvalidSession", "MissingSession", () =>
 					Effect.fail(new UnauthorizedError({ message: "Invalid session" })),
+				),
+				Match.tag("MangaProviderBusy", () =>
+					Effect.fail(
+						new ConflictError({
+							message: "This provider is already being processed",
+						}),
+					),
 				),
 				Match.exhaustive,
 			),

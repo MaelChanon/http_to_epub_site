@@ -1,0 +1,2 @@
+CREATE TYPE "manga_provider_status" AS ENUM('CREATING', 'UPDATING', 'DELETING', 'UPDATED', 'FAILED');--> statement-breakpoint
+ALTER TABLE "manga_providers" ADD COLUMN "status" "manga_provider_status" DEFAULT 'UPDATED'::"manga_provider_status" NOT NULL;

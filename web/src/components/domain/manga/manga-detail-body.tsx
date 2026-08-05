@@ -4,9 +4,13 @@ import { ChapterList } from "./chapter-list";
 import { GenerateEpubPanel } from "./generate-epub-panel";
 import type { ChapterRange } from "./manga.util";
 import { MangaHero } from "./manga-hero";
-import { useMangaProviders } from "./scanProvider.queries";
+import {
+	useMangaProviderEvents,
+	useMangaProviders,
+} from "./scanProvider.queries";
 
 export function MangaDetailBody({ manga }: { manga: Manga }) {
+	useMangaProviderEvents(manga.mangaId);
 	const { data: providers = [] } = useMangaProviders(manga.mangaId);
 	const totalChapters = useMemo(
 		() =>

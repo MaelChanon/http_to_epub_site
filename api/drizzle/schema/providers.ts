@@ -15,6 +15,14 @@ export const providerName = pgEnum("provider_name", [
 	"MANGA_ORIGINS",
 ]);
 
+export const mangaProviderStatus = pgEnum("manga_provider_status", [
+	"CREATING",
+	"UPDATING",
+	"DELETING",
+	"UPDATED",
+	"FAILED",
+]);
+
 export const providers = pgTable("providers", {
 	id: uuid("id").primaryKey().defaultRandom(),
 	name: providerName("name").notNull().unique(),
@@ -30,6 +38,7 @@ export const mangaProviders = pgTable(
 			.notNull()
 			.references(() => providers.id, { onDelete: "cascade" }),
 		tag: text("tag").notNull(),
+		status: mangaProviderStatus("status").notNull().default("UPDATED"),
 	},
 	(table) => [primaryKey({ columns: [table.mangaId, table.providerId] })],
 );

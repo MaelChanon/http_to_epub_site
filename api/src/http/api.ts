@@ -4,6 +4,7 @@ import { ScanProviderApiGroup } from "../domain/scanProvider/scanProvider.group.
 import { AuthApiGroup, UsersApiGroup } from "../domain/user/user.group.js";
 import {
 	BadRequestError,
+	ConflictError,
 	ForbiddenError,
 	InternalServerError,
 	NotFoundError,
@@ -21,8 +22,10 @@ export {
 	ChapterSummary,
 	MangaProviderChapters,
 	MangaProviderName,
+	MangaProviderStatus,
 	ProviderArchive,
 	ProviderMangaSummary,
+	ScanEvent,
 } from "../domain/scanProvider/scanProvider.domain.js";
 export {
 	CreateUserPayload,
@@ -41,4 +44,5 @@ export class Api extends HttpApi.make("api")
 	.addError(InternalServerError, { status: 500 })
 	.addError(ForbiddenError, { status: 403 })
 	.addError(UnauthorizedError, { status: 401 })
+	.addError(ConflictError, { status: 409 })
 	.prefix("/api") {}
