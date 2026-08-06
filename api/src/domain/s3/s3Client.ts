@@ -12,9 +12,19 @@ export class S3Client extends Context.Tag("S3Client")<
 	S3ClientSdk
 >() {}
 
-const s3ClientEffect = Effect.gen(function* () {
-	const config = yield* appConfig;
-	return yield* Effect.acquireRelease(
+export class S3PresignClient extends Context.Tag("S3PresignClient")<
+	S3PresignClient,
+	S3ClientSdk
+>() {}
+
+function acquireS3Client(config: {
+	readonly s3Endpoint: string;
+	readonly s3Region: string;
+	readonly s3ForcePathStyle: boolean;
+	readonly s3AccessKeyId: string;
+	readonly s3SecretAccessKey: string;
+}) {
+	return Effect.acquireRelease(
 		Effect.sync(
 			() =>
 				new S3ClientSdk({
@@ -33,6 +43,23 @@ const s3ClientEffect = Effect.gen(function* () {
 		),
 		(client) => Effect.sync(() => client.destroy()),
 	);
-});
+}
 
-export const S3ClientLive = Layer.scoped(S3Client, s3ClientEffect);
+export const S3ClientLive = Layer.scoped(
+	S3Client,
+	Effect.gen(function* () {
+		const config = yield* appConfig;
+		return yield* acquireS3Client(config);
+	}),
+);
+
+export const S3PresignClientLive = Layer.scoped(
+	S3PresignClient,
+	Effect.gen(function* () {
+		const config = yield* appConfig;
+		return yield* acquireS3Client({
+			...config,
+			s3Endpoint: config.s3PublicEndpoint,
+		});
+	}),
+);

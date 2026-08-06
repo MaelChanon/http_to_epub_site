@@ -19,6 +19,7 @@ class AppConfig {
 		readonly cookieSecure: boolean,
 		readonly redisUrl: string,
 		readonly s3Endpoint: string,
+		readonly s3PublicEndpoint: string,
 		readonly s3Region: string,
 		readonly s3Bucket: string,
 		readonly s3UserBucket: string,
@@ -50,6 +51,13 @@ export const appConfig = Config.map(
 		Config.string("S3_ENDPOINT").pipe(
 			Config.withDefault("http://localhost:3900"),
 		),
+		Config.string("S3_PUBLIC_ENDPOINT").pipe(
+			Config.orElse(() =>
+				Config.string("S3_ENDPOINT").pipe(
+					Config.withDefault("http://localhost:3900"),
+				),
+			),
+		),
 		Config.string("S3_REGION").pipe(Config.withDefault("garage")),
 		Config.string("S3_BUCKET").pipe(Config.withDefault("manga")),
 		Config.string("S3_USER_BUCKET").pipe(Config.withDefault("user")),
@@ -73,6 +81,7 @@ export const appConfig = Config.map(
 		cookieSecure,
 		redisUrl,
 		s3Endpoint,
+		s3PublicEndpoint,
 		s3Region,
 		s3Bucket,
 		s3UserBucket,
@@ -92,6 +101,7 @@ export const appConfig = Config.map(
 			cookieSecure,
 			redisUrl,
 			s3Endpoint,
+			s3PublicEndpoint,
 			s3Region,
 			s3Bucket,
 			s3UserBucket,

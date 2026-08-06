@@ -49,6 +49,7 @@ const toS3Error = (operation: string, key?: string) => (e: unknown) =>
 
 export function makeS3Operations(
 	client: S3ClientSdk,
+	presignClient: S3ClientSdk,
 	bucket: string,
 	httpClient: HttpClient.HttpClient,
 ) {
@@ -75,7 +76,7 @@ export function makeS3Operations(
 		return Effect.tryPromise({
 			try: () =>
 				getSignedUrl(
-					client,
+					presignClient,
 					new GetObjectCommand({
 						Bucket: bucket,
 						Key: key,
