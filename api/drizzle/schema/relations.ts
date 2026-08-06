@@ -1,10 +1,11 @@
 import { defineRelations } from "drizzle-orm";
+import * as epub from "./epub.js";
 import * as favorites from "./favorites.js";
 import * as mangas from "./mangas.js";
 import * as providers from "./providers.js";
 import * as users from "./users.js";
 
-const schema = { ...users, ...mangas, ...providers, ...favorites };
+const schema = { ...users, ...mangas, ...providers, ...favorites, ...epub };
 
 export const relations = defineRelations(schema, (r) => ({
 	mangas: {
@@ -27,6 +28,10 @@ export const relations = defineRelations(schema, (r) => ({
 		favorites: r.many.favorites({
 			from: r.mangas.id,
 			to: r.favorites.mangaId,
+		}),
+		epubs: r.many.epubs({
+			from: r.mangas.id,
+			to: r.epubs.mangaId,
 		}),
 	},
 	mangaStaff: {
@@ -53,6 +58,10 @@ export const relations = defineRelations(schema, (r) => ({
 		catalog: r.many.providerMangas({
 			from: r.providers.id,
 			to: r.providerMangas.providerId,
+		}),
+		epubs: r.many.epubs({
+			from: r.providers.id,
+			to: r.epubs.providerId,
 		}),
 	},
 	mangaProviders: {
@@ -104,6 +113,10 @@ export const relations = defineRelations(schema, (r) => ({
 			from: r.users.id,
 			to: r.userPermissions.userId,
 		}),
+		epubs: r.many.epubs({
+			from: r.users.id,
+			to: r.epubs.userId,
+		}),
 	},
 	userPermissions: {
 		user: r.one.users({
@@ -121,6 +134,23 @@ export const relations = defineRelations(schema, (r) => ({
 		manga: r.one.mangas({
 			from: r.favorites.mangaId,
 			to: r.mangas.id,
+			optional: false,
+		}),
+	},
+	epubs: {
+		user: r.one.users({
+			from: r.epubs.userId,
+			to: r.users.id,
+			optional: false,
+		}),
+		manga: r.one.mangas({
+			from: r.epubs.mangaId,
+			to: r.mangas.id,
+			optional: false,
+		}),
+		provider: r.one.providers({
+			from: r.epubs.providerId,
+			to: r.providers.id,
 			optional: false,
 		}),
 	},

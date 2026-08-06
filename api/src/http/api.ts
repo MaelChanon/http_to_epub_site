@@ -1,4 +1,5 @@
 import { HttpApi } from "@effect/platform";
+import { EpubApiGroup } from "../domain/epub/epub.group.js";
 import { MangaApiGroup } from "../domain/manga/manga.group.js";
 import { ScanProviderApiGroup } from "../domain/scanProvider/scanProvider.group.js";
 import { AuthApiGroup, UsersApiGroup } from "../domain/user/user.group.js";
@@ -11,7 +12,17 @@ import {
 	UnauthorizedError,
 } from "./error.js";
 
-export { Manga, MangaSummary } from "../domain/manga/manga.domain.js";
+export {
+	CreateEpubPayload,
+	Epub,
+	EpubStatus,
+	MangaEpubs,
+} from "../domain/epub/epub.domain.js";
+export {
+	Manga,
+	MangaSummary,
+	MangaWithEpub,
+} from "../domain/manga/manga.domain.js";
 export {
 	AniListId,
 	AniListSearchResult,
@@ -39,6 +50,7 @@ export class Api extends HttpApi.make("api")
 	.add(AuthApiGroup)
 	.add(MangaApiGroup)
 	.add(ScanProviderApiGroup)
+	.add(EpubApiGroup)
 	.addError(NotFoundError, { status: 404 })
 	.addError(BadRequestError, { status: 400 })
 	.addError(InternalServerError, { status: 500 })

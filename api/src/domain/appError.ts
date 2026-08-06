@@ -6,6 +6,11 @@ import type {
 	SessionStoreError,
 } from "../session/session.service.js";
 import type { ArchiveError } from "./archive/archive.service.js";
+import type {
+	EpubChapterRangeEmpty,
+	EpubNotFound,
+	EpubNotReady,
+} from "./epub/epub.service.js";
 import type { MangaNotFound } from "./manga/manga.service.js";
 import type { MangaFetcherFetchFailed } from "./mangaFetcher/mangaFetcher.service.js";
 import type {
@@ -47,4 +52,7 @@ export type DomainError =
 	| ChapterNotFound
 	| PageNotFound
 	| ImageFetchFailed
-	| MangaFetcherFetchFailed;
+	| MangaFetcherFetchFailed
+	| EpubNotFound
+	| EpubNotReady
+	| EpubChapterRangeEmpty;

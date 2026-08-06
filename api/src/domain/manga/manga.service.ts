@@ -11,15 +11,16 @@ import {
 	SQLError,
 	toSQLError,
 } from "../../../drizzle/schema/utils.js";
+import { EpubRepository } from "../epub/epub.repository.js";
 import { FavoriteService } from "../favorite/favorite.service.js";
 import {
 	AniListId,
 	type MangaProviderData,
-	MangaStaff,
 } from "../mangaProvider/mangaProvider.domain.js";
 import { S3Service } from "../s3/s3.service.js";
 import type { UserId } from "../user/user.domain.js";
-import { Manga, MangaDbId, MangaSummary } from "./manga.domain.js";
+import { MangaDbId, MangaSummary, MangaWithEpub } from "./manga.domain.js";
+import { MangaRepository } from "./manga.repository.js";
 
 export class MangaNotFound extends Data.TaggedError("MangaNotFound")<{
 	readonly mangaId: AniListId;
@@ -35,41 +36,9 @@ export class MangaService extends Effect.Service<MangaService>()(
 		effect: Effect.gen(function* () {
 			const db = yield* DB;
 			const s3 = yield* S3Service;
+			const epubRepo = yield* EpubRepository;
 			const favoriteService = yield* FavoriteService;
-
-			type MangaRow = NonNullable<
-				Effect.Effect.Success<
-					ReturnType<
-						typeof db.query.mangas.findFirst<{
-							with: { staff: true; genres: true };
-						}>
-					>
-				>
-			>;
-
-			function toManga(row: MangaRow, isFavorite: boolean) {
-				return Effect.succeed(
-					new Manga({
-						id: MangaDbId.make(row.id),
-						mangaId: AniListId.make(row.mangaId),
-						titleRomaji: row.titleRomaji,
-						titleEnglish: row.titleEnglish,
-						titleNative: row.titleNative,
-						format: row.format,
-						status: row.status,
-						publishedAt: row.publishedAt,
-						totalChapters: row.totalChapters,
-						score: row.score,
-						summary: row.summary,
-						coverUrl: `/api/manga/${row.mangaId}/cover`,
-						staff: row.staff.map(
-							(s) => new MangaStaff({ name: s.name, role: s.role }),
-						),
-						genres: row.genres.map((g) => g.genre),
-						isFavorite,
-					}),
-				);
-			}
+			const mangaRepo = yield* MangaRepository;
 
 			function getCoverPresignedUrl(mangaId: AniListId) {
 				return Effect.gen(function* () {
@@ -81,7 +50,7 @@ export class MangaService extends Effect.Service<MangaService>()(
 						return yield* Effect.fail(new MangaNotFound({ mangaId }));
 					}
 
-					return yield* s3.getUrl(row.path);
+					return yield* s3.manga.getUrl(row.path);
 				});
 			}
 
@@ -90,7 +59,14 @@ export class MangaService extends Effect.Service<MangaService>()(
 					const row = yield* db.query.mangas
 						.findFirst({
 							where: { mangaId },
-							with: { staff: true, genres: true },
+							with: {
+								staff: true,
+								genres: true,
+								epubs: {
+									where: { userId },
+									with: { provider: true },
+								},
+							},
 						})
 						.pipe(Effect.mapError(toSQLError));
 
@@ -103,7 +79,12 @@ export class MangaService extends Effect.Service<MangaService>()(
 						MangaDbId.make(row.id),
 					);
 
-					return yield* toManga(row, isFavorite);
+					const manga = yield* mangaRepo.toManga(row, isFavorite);
+
+					return new MangaWithEpub({
+						...manga,
+						epubs: row.epubs.map((epub) => epubRepo.toEpub(epub)),
+					});
 				});
 			}
 
@@ -186,7 +167,6 @@ export class MangaService extends Effect.Service<MangaService>()(
 									Effect.mapError(toSQLError),
 									getFirst(new SQLError({ message: "failed to create manga" })),
 								);
-
 							yield* Effect.all([
 								tx.delete(mangaStaff).where(eq(mangaStaff.mangaId, manga.id)),
 								tx.delete(mangaGenres).where(eq(mangaGenres.mangaId, manga.id)),
@@ -214,22 +194,9 @@ export class MangaService extends Effect.Service<MangaService>()(
 									.pipe(Effect.mapError(toSQLError));
 							}
 
-							yield* s3.fetchAndUpload(path, data.coverImageUrl);
+							yield* s3.manga.fetchAndUpload(path, data.coverImageUrl);
 
-							const coverUrl = `/api/manga/${manga.mangaId}/cover`;
-							const isFavorite = yield* favoriteService.isFavorite(
-								userId,
-								MangaDbId.make(manga.id),
-							);
-							return new Manga({
-								...manga,
-								id: MangaDbId.make(manga.id),
-								mangaId: AniListId.make(manga.mangaId),
-								staff: data.staff,
-								genres: data.genres,
-								coverUrl,
-								isFavorite,
-							});
+							return yield* getManga(AniListId.make(manga.mangaId), userId);
 						}),
 					)
 					.pipe(Effect.catchTag("SqlError", toSQLError));
@@ -242,6 +209,12 @@ export class MangaService extends Effect.Service<MangaService>()(
 				getCoverPresignedUrl,
 			} as const;
 		}),
-		dependencies: [DBLayer, S3Service.Default, FavoriteService.Default],
+		dependencies: [
+			DBLayer,
+			S3Service.Default,
+			FavoriteService.Default,
+			EpubRepository.Default,
+			MangaRepository.Default,
+		],
 	},
 ) {}

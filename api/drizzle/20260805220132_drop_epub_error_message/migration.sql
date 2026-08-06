@@ -1,0 +1,1 @@
+ALTER TABLE "epubs" DROP COLUMN "error_message";

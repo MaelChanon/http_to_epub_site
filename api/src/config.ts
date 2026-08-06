@@ -1,6 +1,13 @@
+import * as os from "node:os";
+import * as path from "node:path";
 import { Config } from "effect";
 
 const ONE_WEEK_IN_SECONDS = 60 * 60 * 24 * 7;
+const DEFAULT_EPUB_OUTPUT_DIR = path.join(
+	os.tmpdir(),
+	"http-to-epub-site",
+	"epub-build",
+);
 
 class AppConfig {
 	constructor(
@@ -14,11 +21,13 @@ class AppConfig {
 		readonly s3Endpoint: string,
 		readonly s3Region: string,
 		readonly s3Bucket: string,
+		readonly s3UserBucket: string,
 		readonly s3AccessKeyId: string,
 		readonly s3SecretAccessKey: string,
 		readonly s3ForcePathStyle: boolean,
 		readonly corsAllowedOrigins: readonly string[],
 		readonly disableAnilistFetching: boolean,
+		readonly epubOutputDir: string,
 	) {}
 }
 export const appConfig = Config.map(
@@ -43,6 +52,7 @@ export const appConfig = Config.map(
 		),
 		Config.string("S3_REGION").pipe(Config.withDefault("garage")),
 		Config.string("S3_BUCKET").pipe(Config.withDefault("manga")),
+		Config.string("S3_USER_BUCKET").pipe(Config.withDefault("user")),
 		Config.string("S3_ACCESS_KEY_ID").pipe(Config.withDefault("")),
 		Config.string("S3_SECRET_ACCESS_KEY").pipe(Config.withDefault("")),
 		Config.boolean("S3_FORCE_PATH_STYLE").pipe(Config.withDefault(true)),
@@ -50,6 +60,9 @@ export const appConfig = Config.map(
 			Config.withDefault("http://localhost:5173"),
 		),
 		Config.boolean("DISABLE_ANILIST_FETCHING").pipe(Config.withDefault(false)),
+		Config.string("EPUB_OUTPUT_DIR").pipe(
+			Config.withDefault(DEFAULT_EPUB_OUTPUT_DIR),
+		),
 	]),
 	([
 		host,
@@ -62,11 +75,13 @@ export const appConfig = Config.map(
 		s3Endpoint,
 		s3Region,
 		s3Bucket,
+		s3UserBucket,
 		s3AccessKeyId,
 		s3SecretAccessKey,
 		s3ForcePathStyle,
 		corsAllowedOrigins,
 		disableAnilistFetching,
+		epubOutputDir,
 	]) =>
 		new AppConfig(
 			host,
@@ -79,6 +94,7 @@ export const appConfig = Config.map(
 			s3Endpoint,
 			s3Region,
 			s3Bucket,
+			s3UserBucket,
 			s3AccessKeyId,
 			s3SecretAccessKey,
 			s3ForcePathStyle,
@@ -87,5 +103,6 @@ export const appConfig = Config.map(
 				.map((origin) => origin.trim())
 				.filter((origin) => origin.length > 0),
 			disableAnilistFetching,
+			epubOutputDir,
 		),
 );

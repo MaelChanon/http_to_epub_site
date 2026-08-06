@@ -18,6 +18,35 @@ export function Header() {
 		queryFn: getCurrentUser,
 	});
 
+	const navLinks = [
+		{
+			to: "/" as const,
+			label: "Browse",
+			isActive: pathname === "/" && !favoritesOn,
+		},
+		{
+			to: "/library" as const,
+			label: "Library",
+			isActive: pathname === "/library",
+			className: "hidden sm:block",
+		},
+		{
+			to: "/" as const,
+			search: { favorites: true },
+			label: "Favorites",
+			isActive: favoritesOn,
+		},
+		...(currentUser?.isAdmin
+			? [
+					{
+						to: "/admin/users" as const,
+						label: "Admin",
+						isActive: pathname === "/admin/users",
+					},
+				]
+			: []),
+	];
+
 	return (
 		<header className="sticky top-0 z-20 border-b border-(--line) bg-(--bg)">
 			<div className="mx-auto flex h-14 max-w-[1440px] items-center gap-3 px-4 sm:h-16 sm:gap-6 sm:px-8">
@@ -34,46 +63,20 @@ export function Header() {
 				</Link>
 
 				<nav className="flex min-w-0 items-center gap-0.5 overflow-x-auto">
-					<Link
-						to="/"
-						className={`shrink-0 rounded-md px-2.5 py-2 text-[13px] font-medium whitespace-nowrap transition-colors sm:px-3 ${
-							pathname === "/" && !favoritesOn
-								? "bg-(--bg-elev-2) text-(--ink)"
-								: "text-(--ink-soft) hover:bg-(--bg-elev-2) hover:text-(--ink)"
-						}`}
-					>
-						Browse
-					</Link>
-					<button
-						type="button"
-						disabled
-						className="hidden shrink-0 cursor-not-allowed rounded-md px-2.5 py-2 text-[13px] font-medium text-(--ink-muted) opacity-50 sm:block sm:px-3"
-					>
-						Library
-					</button>
-					<Link
-						to="/"
-						search={{ favorites: true }}
-						className={`shrink-0 rounded-md px-2.5 py-2 text-[13px] font-medium whitespace-nowrap transition-colors sm:px-3 ${
-							favoritesOn
-								? "bg-(--bg-elev-2) text-(--ink)"
-								: "text-(--ink-soft) hover:bg-(--bg-elev-2) hover:text-(--ink)"
-						}`}
-					>
-						Favorites
-					</Link>
-					{currentUser?.isAdmin && (
+					{navLinks.map((link) => (
 						<Link
-							to="/admin/users"
-							className={`shrink-0 rounded-md px-2.5 py-2 text-[13px] font-medium whitespace-nowrap transition-colors sm:px-3 ${
-								pathname === "/admin/users"
+							key={link.label}
+							to={link.to}
+							search={"search" in link ? link.search : undefined}
+							className={`shrink-0 rounded-md px-2.5 py-2 text-[13px] font-medium whitespace-nowrap transition-colors sm:px-3 ${"className" in link ? link.className : ""} ${
+								link.isActive
 									? "bg-(--bg-elev-2) text-(--ink)"
 									: "text-(--ink-soft) hover:bg-(--bg-elev-2) hover:text-(--ink)"
 							}`}
 						>
-							Admin
+							{link.label}
 						</Link>
-					)}
+					))}
 				</nav>
 
 				<div className="ml-4 hidden flex-1 justify-center sm:flex">

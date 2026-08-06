@@ -124,7 +124,7 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 								chapter.pages,
 								(pageUrl, index) => {
 									const key = `${mangaDbId}/${chapter.chapterNumber}/${index + 1}.${new URL(pageUrl).pathname.split(".").pop() || "jpg"}`;
-									return s3.fetchAndUpload(key, pageUrl).pipe(
+									return s3.manga.fetchAndUpload(key, pageUrl).pipe(
 										Effect.tap(() =>
 											Ref.update(uploadedKeys, (keys) => [...keys, key]),
 										),
@@ -161,7 +161,7 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 						}).pipe(
 							Effect.onError(() =>
 								Ref.get(uploadedKeys).pipe(
-									Effect.flatMap((keys) => s3.deleteObjects(keys)),
+									Effect.flatMap((keys) => s3.manga.deleteObjects(keys)),
 									Effect.ignoreLogged,
 								),
 							),
@@ -226,7 +226,11 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 						);
 						yield* Effect.forEach(
 							rawChapters,
-							(chapter) => processChapter(mangaDbId, providerId, chapter),
+							(chapter) =>
+								processChapter(mangaDbId, providerId, {
+									...chapter,
+									chapterNumber: chapter.chapterNumber + 1,
+								}),
 							{ concurrency: 3 },
 						);
 
@@ -390,7 +394,7 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 						);
 						const archiveKey = `${mangaDbId}/archives/${provider}.zip`;
 
-						yield* s3.deleteObjects([...paths, archiveKey]);
+						yield* s3.manga.deleteObjects([...paths, archiveKey]);
 
 						yield* db
 							.delete(chapters)
@@ -541,7 +545,7 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 						);
 					}
 
-					return yield* s3.getUrl(pageRow.path);
+					return yield* s3.manga.getUrl(pageRow.path);
 				});
 			}
 
@@ -575,7 +579,7 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 					const entries = yield* Effect.forEach(
 						pageEntries,
 						({ path, entryName }) =>
-							s3
+							s3.manga
 								.download(path)
 								.pipe(Effect.map((data) => ({ entryName, data }))),
 						{ concurrency: 5 },
@@ -584,8 +588,8 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 					const zip = yield* archive.buildZip(entries);
 
 					const key = yield* getProviderArchive(mangaDbId, provider);
-					yield* s3.upload(key, zip, "application/zip");
-					const url = yield* s3.getUrl(key);
+					yield* s3.manga.upload(key, zip, "application/zip");
+					const url = yield* s3.manga.getUrl(key);
 
 					return new ProviderArchive({ url });
 				});

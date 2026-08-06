@@ -9,6 +9,7 @@ declare module "./load.cjs" {
 		provider: string,
 	): Promise<RawMangaChapter[]>;
 	function getProviderCatalog(provider: string): Promise<RawMangaCatalogEntry[]>;
+	function buildEpub(input: RawBuildEpubInput): Promise<RawBuildEpubOutput>;
 }
 
 interface RawMangaChapter {
@@ -21,6 +22,23 @@ interface RawMangaCatalogEntry {
 	name: string;
 	coverUrl: string;
 	chapterCount: number;
+}
+
+interface RawBuildEpubInput {
+	tag: string;
+	name: string;
+	coverUrl: string;
+	creator: string;
+	lang: string;
+	width: number;
+	height: number;
+	splitDoublePage: boolean;
+	chapters: { chapterNumber: number; pages: string[] }[];
+	outputPath: string;
+}
+
+interface RawBuildEpubOutput {
+	fileSizeBytes: number;
 }
 
 export type MangaProvider = "SUSHISCAN" | "MANGA_ORIGINS";
@@ -48,5 +66,34 @@ export function getProviderCatalog(
 	provider: MangaProvider,
 ): Promise<MangaCatalogEntry[]> {
 	return addon.getProviderCatalog(provider);
+}
+
+export interface BuildEpubChapterInput {
+	chapterNumber: number;
+	/** URLs présignées vers notre propre S3 — jamais des URLs du site source. */
+	pages: string[];
+}
+
+export interface BuildEpubInput {
+	tag: string;
+	name: string;
+	/** URL présignée vers notre propre S3. */
+	coverUrl: string;
+	creator: string;
+	lang: string;
+	width: number;
+	height: number;
+	splitDoublePage: boolean;
+	chapters: BuildEpubChapterInput[];
+	/** Chemin absolu où écrire le fichier .epub produit. */
+	outputPath: string;
+}
+
+export interface BuildEpubOutput {
+	fileSizeBytes: number;
+}
+
+export function buildEpub(input: BuildEpubInput): Promise<BuildEpubOutput> {
+	return addon.buildEpub(input);
 }
 

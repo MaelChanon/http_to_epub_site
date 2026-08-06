@@ -1,7 +1,11 @@
 import { Layer } from "effect";
 import { DBLayer } from "../drizzle/db.js";
 import { AuthService } from "./auth/auth.service.js";
+import { EpubCronLive } from "./domain/epub/epub.cron.js";
+import { EpubRepository } from "./domain/epub/epub.repository.js";
+import { EpubService } from "./domain/epub/epub.service.js";
 import { FavoriteService } from "./domain/favorite/favorite.service.js";
+import { MangaRepository } from "./domain/manga/manga.repository.js";
 import { MangaService } from "./domain/manga/manga.service.js";
 import { MangaProviderService } from "./domain/mangaProvider/mangaProvider.service.js";
 import { S3Service } from "./domain/s3/s3.service.js";
@@ -9,6 +13,7 @@ import { ProviderRepository } from "./domain/scanProvider/provider.repository.js
 import { ProviderCatalogService } from "./domain/scanProvider/providerCatalog.service.js";
 import { ScanEventsService } from "./domain/scanProvider/scanEvents.service.js";
 import { ScanProviderCronLive } from "./domain/scanProvider/scanProvider.cron.js";
+import { ScanProviderRepository } from "./domain/scanProvider/scanProvider.repository.js";
 import { ScanProviderService } from "./domain/scanProvider/scanProvider.service.js";
 import { UsersRepository } from "./domain/user/user.repository.js";
 import { UserService } from "./domain/user/user.service.js";
@@ -25,6 +30,7 @@ const ServicesLive = Layer.mergeAll(
 	SessionService.Default,
 	S3Service.Default,
 	MangaProviderService.Default,
+	MangaRepository.Default,
 	MangaService.Default,
 	FavoriteService.Default,
 	ScanProviderService.Default,
@@ -32,8 +38,13 @@ const ServicesLive = Layer.mergeAll(
 	ProviderCatalogService.Default,
 	UsersRepository.Default,
 	ProviderRepository.Default,
+	ScanProviderRepository.Default,
+	EpubRepository.Default,
+	EpubService.Default,
 );
 
-const WorkersLive = ScanProviderCronLive.pipe(Layer.provide(ServicesLive));
+const WorkersLive = Layer.mergeAll(ScanProviderCronLive, EpubCronLive).pipe(
+	Layer.provide(ServicesLive),
+);
 
 export const AppLayer = Layer.mergeAll(ServicesLive, WorkersLive);

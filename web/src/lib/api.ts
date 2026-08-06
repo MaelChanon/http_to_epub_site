@@ -2,9 +2,12 @@ import { FetchHttpClient, HttpApiClient } from "@effect/platform";
 import type {
 	AniListSearchResult,
 	ChapterPages,
+	CreateEpubPayload,
 	CreateUserPayload,
+	Epub,
 	LoginPayload,
 	Manga,
+	MangaEpubs,
 	MangaProviderChapters,
 	MangaProviderName,
 	MangaSummary,
@@ -19,8 +22,11 @@ import { Effect, Layer } from "effect";
 export type {
 	AniListSearchResult,
 	ChapterPages,
+	CreateEpubPayload,
 	CreateUserPayload,
+	Epub,
 	Manga,
+	MangaEpubs,
 	MangaProviderChapters,
 	MangaSummary,
 	ProviderArchive,
@@ -29,6 +35,7 @@ export type {
 } from "@workspace/api";
 export {
 	AniListId,
+	EpubStatus,
 	MangaGenre,
 	MangaProviderName,
 	MangaProviderStatus,
@@ -94,7 +101,7 @@ export function deleteUser(id: User["id"]): Promise<void> {
 	);
 }
 
-export function getManga(mangaId: AniListId): Promise<Manga> {
+export function getManga(mangaId: AniListId) {
 	return Effect.runPromise(
 		client.manga
 			.getManga({ path: { mangaId } })
@@ -102,7 +109,7 @@ export function getManga(mangaId: AniListId): Promise<Manga> {
 	);
 }
 
-export function refreshManga(mangaId: AniListId): Promise<Manga> {
+export function refreshManga(mangaId: AniListId) {
 	return Effect.runPromise(
 		client.manga
 			.refreshManga({ path: { mangaId } })
@@ -194,6 +201,24 @@ export function buildProviderArchive(
 		client.scanProvider
 			.getMangaProviderArchive({ path: { mangaId, provider } })
 			.pipe(Effect.catchAll(toApiError)),
+	);
+}
+
+export function generateEpub(
+	mangaId: AniListId,
+	provider: MangaProviderName,
+	payload: CreateEpubPayload,
+): Promise<Epub> {
+	return Effect.runPromise(
+		client.epub
+			.createEpub({ path: { mangaId, provider }, payload })
+			.pipe(Effect.catchAll(toApiError)),
+	);
+}
+
+export function listEpubs(): Promise<readonly MangaEpubs[]> {
+	return Effect.runPromise(
+		client.epub.listEpubs().pipe(Effect.catchAll(toApiError)),
 	);
 }
 

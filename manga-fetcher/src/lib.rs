@@ -1,6 +1,8 @@
-use htpp_to_epub::provider::{manga_origins::MangaOrigins, sushiscan::SushiScan, Provider};
+use htpp_to_epub::builder::{build, BuildParams, FileMod};
+use htpp_to_epub::provider::{manga_origins::MangaOrigins, sushiscan::SushiScan, Chapter, MangaInfo, Provider, TChapter};
+use htpp_to_epub::utils::{build_client, fetch_with_retry};
 use neon::types::extract::Json;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use tokio::sync::oneshot;
 
 #[derive(Serialize)]
@@ -199,4 +201,104 @@ fn fetch_chapter_numbers_blocking(
             .map(|chapter| chapter.chapter_number)
             .collect())
     })
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BuildEpubChapterInput {
+    chapter_number: usize,
+    /// URLs présignées vers notre propre S3, pas des URLs du site source.
+    pages: Vec<String>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct BuildEpubInput {
+    tag: String,
+    name: String,
+    cover_url: String,
+    creator: String,
+    lang: String,
+    width: u32,
+    height: u32,
+    split_double_page: bool,
+    chapters: Vec<BuildEpubChapterInput>,
+    output_path: String,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct BuildEpubOutput {
+    file_size_bytes: u64,
+}
+
+fn build_epub_blocking(input: BuildEpubInput) -> Result<BuildEpubOutput, String> {
+    let runtime = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .map_err(|err| err.to_string())?;
+
+    runtime.block_on(async move {
+        let client = build_client();
+        let cover = fetch_with_retry(&client, &input.cover_url)
+            .await
+            .map_err(|err| err.to_string())?;
+
+        let manga_info = MangaInfo {
+            tag: input.tag,
+            name: input.name,
+            cover_url: input.cover_url,
+            chapter_count: input.chapters.len(),
+        };
+
+        let chapters = input
+            .chapters
+            .into_iter()
+            .map(|c| {
+                Box::new(Chapter {
+                    pages: c.pages,
+                    chapter_number: c.chapter_number,
+                }) as Box<dyn TChapter + Send + Sync>
+            })
+            .collect();
+
+        let params = BuildParams {
+            width: input.width,
+            height: input.height,
+            cover,
+            chapters,
+            manga_info: Box::new(manga_info),
+            creator: input.creator,
+            lang: input.lang,
+            split_double_page: input.split_double_page,
+        };
+
+        let output_path = std::path::PathBuf::from(&input.output_path);
+        build(&FileMod::EPUB(params), &output_path)
+            .await
+            .map_err(|err| err.to_string())?;
+
+        let size = std::fs::metadata(&output_path)
+            .map_err(|err| err.to_string())?
+            .len();
+
+        Ok(BuildEpubOutput {
+            file_size_bytes: size,
+        })
+    })
+}
+
+/// Construit un EPUB à partir de chapitres déjà hébergés (URLs présignées S3, pas de
+/// scraping live) et l'écrit sur disque à `outputPath`.
+#[neon::export]
+async fn build_epub(input: Json<BuildEpubInput>) -> Result<Json<BuildEpubOutput>, String> {
+    let (tx, rx) = oneshot::channel();
+
+    std::thread::spawn(move || {
+        let _ = tx.send(build_epub_blocking(input.0));
+    });
+
+    rx.await
+        .map_err(|_| "epub build task panicked".to_string())?
+        .map(Json)
 }

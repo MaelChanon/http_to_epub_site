@@ -5,7 +5,7 @@ import {
 	AniListIdFromString,
 	AniListSearchResult,
 } from "../mangaProvider/mangaProvider.domain.js";
-import { Manga, MangaSummary } from "./manga.domain.js";
+import { Manga, MangaSummary, MangaWithEpub } from "./manga.domain.js";
 
 const MangaPath = Schema.Struct({ mangaId: AniListIdFromString });
 
@@ -25,7 +25,7 @@ export class MangaApiGroup extends HttpApiGroup.make("manga")
 	)
 	.add(
 		HttpApiEndpoint.get("getManga", "/manga/:mangaId")
-			.addSuccess(Manga)
+			.addSuccess(MangaWithEpub)
 			.middleware(Authentication)
 			.setPath(MangaPath),
 	)
@@ -37,7 +37,7 @@ export class MangaApiGroup extends HttpApiGroup.make("manga")
 	)
 	.add(
 		HttpApiEndpoint.post("refreshManga", "/manga/:mangaId/refresh")
-			.addSuccess(Manga)
+			.addSuccess(MangaWithEpub)
 			.middleware(Authentication)
 			.setPath(MangaPath),
 	)

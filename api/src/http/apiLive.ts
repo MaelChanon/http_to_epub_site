@@ -1,6 +1,7 @@
 import { HttpApiBuilder } from "@effect/platform";
 import { Layer } from "effect";
 import { AuthenticationLive } from "../auth/auth.middleware.live.js";
+import { EpubApiGroupLive } from "../domain/epub/epub.controller.js";
 import { MangaApiGroupLive } from "../domain/manga/manga.controller.js";
 import { ScanProviderApiGroupLive } from "../domain/scanProvider/scanService.controller.js";
 import {
@@ -18,6 +19,7 @@ export const ApiLive = HttpApiBuilder.api(Api).pipe(
 			AuthApiGroupLive,
 			MangaApiGroupLive,
 			ScanProviderApiGroupLive,
+			EpubApiGroupLive,
 		),
 	),
 	Layer.provide(AuthenticationLive),

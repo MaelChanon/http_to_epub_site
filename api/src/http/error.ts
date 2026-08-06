@@ -54,6 +54,7 @@ export const toHttpError = (
 					"MangaProviderNotLinked",
 					"ChapterNotFound",
 					"PageNotFound",
+					"EpubNotFound",
 					() =>
 						Effect.fail(
 							new NotFoundError({
@@ -83,6 +84,20 @@ export const toHttpError = (
 					Effect.fail(
 						new ConflictError({
 							message: "This provider is already being processed",
+						}),
+					),
+				),
+				Match.tag("EpubNotReady", () =>
+					Effect.fail(
+						new ConflictError({
+							message: "This epub is not ready for download yet",
+						}),
+					),
+				),
+				Match.tag("EpubChapterRangeEmpty", () =>
+					Effect.fail(
+						new BadRequestError({
+							message: "No chapters found in the requested range",
 						}),
 					),
 				),

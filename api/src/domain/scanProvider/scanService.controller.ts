@@ -118,7 +118,7 @@ export const ScanProviderApiGroupLive = HttpApiBuilder.group(
 									manga.id,
 									path.provider,
 								);
-								const url = yield* s3.getUrl(key);
+								const url = yield* s3.manga.getUrl(key);
 								return new ProviderArchive({ url });
 							}),
 						),
