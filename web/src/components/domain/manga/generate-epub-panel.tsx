@@ -1,5 +1,8 @@
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect, useState } from "react";
+import type { UploadEpubCoverPayload } from "@workspace/api";
+import { EpubCoverContentType } from "@workspace/api";
+import { Schema } from "effect";
+import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { IconBolt } from "@/components/icons";
@@ -12,6 +15,41 @@ import { useGenerateEpub } from "./epub.queries";
 import type { ChapterRange } from "./manga.util";
 import { coverHue, displayTitle, formatEnumLabel } from "./manga.util";
 import { useMangaProviders } from "./scanProvider.queries";
+
+const MAX_COVER_BYTES = 8 * 1024 * 1024;
+
+const isEpubCoverContentType = Schema.is(EpubCoverContentType);
+
+function readFileAsBase64(file: File): Promise<string> {
+	return new Promise((resolve, reject) => {
+		const reader = new FileReader();
+
+		reader.onload = () => {
+			if (typeof reader.result !== "string") {
+				reject(
+					new Error("Échec de la lecture du fichier : résultat non valide."),
+				);
+				return;
+			}
+
+			const commaIndex = reader.result.indexOf(",");
+			if (commaIndex === -1) {
+				reject(new Error("Format Data URL invalide (aucune virgule trouvée)."));
+				return;
+			}
+
+			resolve(reader.result.slice(commaIndex + 1));
+		};
+
+		reader.onerror = () => {
+			reject(
+				reader.error ?? new Error("Erreur lors de la lecture du fichier."),
+			);
+		};
+
+		reader.readAsDataURL(file);
+	});
+}
 
 const DIM_PRESETS = [
 	{ id: "kindle", name: 'Kindle 6"', w: 600, h: 800 },
@@ -50,6 +88,43 @@ export function GenerateEpubPanel({
 	const [customH, setCustomH] = useState(1200);
 	const hue = coverHue(manga.id);
 
+	const coverInputRef = useRef<HTMLInputElement>(null);
+	const [cover, setCover] = useState<UploadEpubCoverPayload | null>(null);
+	const [coverError, setCoverError] = useState<string>();
+
+	async function handleCoverChange(e: React.ChangeEvent<HTMLInputElement>) {
+		const file = e.target.files?.[0];
+		e.target.value = "";
+		if (!file) {
+			return;
+		}
+
+		setCoverError(undefined);
+
+		const contentType = file.type;
+		if (!isEpubCoverContentType(contentType)) {
+			setCoverError("Use a JPEG, PNG or WebP image");
+			return;
+		}
+
+		if (file.size > MAX_COVER_BYTES) {
+			setCoverError("Image is too large (max 8 MB)");
+			return;
+		}
+
+		setCover(null);
+
+		try {
+			const data = await readFileAsBase64(file);
+			setCover({
+				contentType,
+				data,
+			});
+		} catch {
+			setCoverError("Failed to upload cover");
+		}
+	}
+
 	useEffect(() => {
 		if (provider && providers.some((p) => p.provider === provider)) {
 			return;
@@ -69,7 +144,7 @@ export function GenerateEpubPanel({
 	} = useForm<GenerateFormValues>({
 		resolver: zodResolver(generateFormSchema),
 		defaultValues: {
-			creator: "",
+			creator: manga.staff[0] ? manga.staff[0].name : "",
 			filename: displayTitle(manga),
 			splitDoublePage: false,
 		},
@@ -86,7 +161,6 @@ export function GenerateEpubPanel({
 			? { w: customW, h: customH }
 			: { w: preset.w ?? 0, h: preset.h ?? 0 };
 	const chapterCount = Math.max(0, range.end - range.start + 1);
-	const estimatedMb = Math.round((chapterCount * 0.85 + 2) * 10) / 10;
 
 	const clampStart = (value: number) =>
 		Math.max(1, Math.min(range.end, value || 1));
@@ -108,6 +182,7 @@ export function GenerateEpubPanel({
 			splitDoublePage: values.splitDoublePage,
 			creator: values.creator.trim() || undefined,
 			filename: values.filename,
+			...(cover ? { cover } : {}),
 		});
 	}
 
@@ -277,12 +352,52 @@ export function GenerateEpubPanel({
 				</div>
 
 				<div className="flex flex-col gap-2">
-					<div
-						className="relative aspect-2/3 w-14 overflow-hidden rounded-md border border-(--line)"
-						style={{
-							backgroundImage: `repeating-linear-gradient(135deg, oklch(0.3 0.04 ${hue}) 0 6px, oklch(0.38 0.07 ${hue}) 6px 12px)`,
-						}}
-					/>
+					<div className="flex items-center gap-3">
+						<button
+							type="button"
+							onClick={() => coverInputRef.current?.click()}
+							className="relative aspect-2/3 w-14 shrink-0 overflow-hidden rounded-md border border-(--line)"
+							style={
+								cover
+									? undefined
+									: {
+											backgroundImage: `repeating-linear-gradient(135deg, oklch(0.3 0.04 ${hue}) 0 6px, oklch(0.38 0.07 ${hue}) 6px 12px)`,
+										}
+							}
+						>
+							{cover && (
+								<img
+									src={`data:image/png;base64, ${cover.data}`}
+									alt="Cover preview"
+									className="size-full object-cover"
+								/>
+							)}
+						</button>
+						<div className="flex min-w-0 flex-col gap-1">
+							<div className="flex flex-wrap gap-1.5">
+								<QuickButton onClick={() => coverInputRef.current?.click()}>
+									{cover ? "Change cover" : "Upload cover"}
+								</QuickButton>
+								{cover && (
+									<QuickButton onClick={() => setCover(null)}>
+										Remove
+									</QuickButton>
+								)}
+							</div>
+							{coverError && (
+								<span className="font-mono text-[10.5px] text-destructive">
+									{coverError}
+								</span>
+							)}
+						</div>
+						<input
+							ref={coverInputRef}
+							type="file"
+							accept="image/jpeg,image/png,image/webp"
+							onChange={handleCoverChange}
+							className="hidden"
+						/>
+					</div>
 					<TextField
 						label="author"
 						placeholder={manga.titleNative}
@@ -304,12 +419,6 @@ export function GenerateEpubPanel({
 			</form>
 
 			<div className="flex flex-col gap-2.5 border-t border-(--line) bg-(--bg-elev-2) px-4.5 py-3.5">
-				<div className="flex items-center justify-between font-mono text-[10.5px] tracking-[0.05em] text-(--ink-muted) uppercase">
-					<span>est. size</span>
-					<b className="font-medium text-(--ink) normal-case">
-						~{estimatedMb} MB
-					</b>
-				</div>
 				{generateMutation.isSuccess && (
 					<p className="font-mono text-[10.5px] text-(--brand)">
 						Queued — check your library.

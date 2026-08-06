@@ -15,8 +15,11 @@ import {
 export {
 	CreateEpubPayload,
 	Epub,
+	EpubCoverContentType,
+	EpubCoverUpload,
 	EpubStatus,
 	MangaEpubs,
+	UploadEpubCoverPayload,
 } from "../domain/epub/epub.domain.js";
 export {
 	Manga,

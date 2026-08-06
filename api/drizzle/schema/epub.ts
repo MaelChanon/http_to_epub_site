@@ -37,6 +37,7 @@ export const epubs = pgTable("epubs", {
 	creator: text("creator").notNull(),
 	filename: text("filename").notNull(),
 	s3Key: text("s3_key").notNull(),
+	coverKey: text("cover_key"),
 	status: epubStatus("status").notNull().default("PENDING"),
 	fileSizeBytes: integer("file_size_bytes"),
 	createdAt: timestamp("created_at", { withTimezone: true })

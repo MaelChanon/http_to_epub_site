@@ -27,7 +27,7 @@ export const AniListMedia = Schema.Struct({
 	title: Schema.Struct({
 		romaji: Schema.NullOr(Schema.String),
 		english: Schema.NullOr(Schema.String),
-		native: Schema.NonEmptyTrimmedString,
+		native: Schema.NullOr(Schema.String),
 	}),
 	format: AniListFormat,
 	status: AniListStatus,
@@ -57,7 +57,7 @@ export const AniListSearchMedia = Schema.Struct({
 	title: Schema.Struct({
 		romaji: Schema.NullOr(Schema.String),
 		english: Schema.NullOr(Schema.String),
-		native: Schema.NonEmptyTrimmedString,
+		native: Schema.NullOr(Schema.String),
 	}),
 	format: AniListFormat,
 	status: AniListStatus,

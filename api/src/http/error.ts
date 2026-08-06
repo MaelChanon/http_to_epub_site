@@ -101,6 +101,13 @@ export const toHttpError = (
 						}),
 					),
 				),
+				Match.tag("EpubCoverInvalid", () =>
+					Effect.fail(
+						new BadRequestError({
+							message: "Invalid cover image",
+						}),
+					),
+				),
 				Match.exhaustive,
 			),
 		),

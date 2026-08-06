@@ -240,7 +240,11 @@ export class MangaProviderService extends Effect.Service<MangaProviderService>()
 						mangaId: anilistId,
 						titleRomaji: media.title.romaji,
 						titleEnglish: media.title.english,
-						titleNative: media.title.native,
+						titleNative:
+							media.title.native ??
+							media.title.romaji ??
+							media.title.english ??
+							"",
 						format: FORMAT_MAP[media.format],
 						status: STATUS_MAP[media.status],
 						publishedAt: toPublishedAt(media.startDate),
@@ -306,7 +310,11 @@ export class MangaProviderService extends Effect.Service<MangaProviderService>()
 								mangaId: AniListId.make(media.id),
 								titleRomaji: media.title.romaji,
 								titleEnglish: media.title.english,
-								titleNative: media.title.native,
+								titleNative:
+									media.title.native ??
+									media.title.romaji ??
+									media.title.english ??
+									"",
 								format: FORMAT_MAP[media.format],
 								status: STATUS_MAP[media.status],
 								publishedAt: toPublishedAt(media.startDate),

@@ -8,6 +8,7 @@ import type {
 import type { ArchiveError } from "./archive/archive.service.js";
 import type {
 	EpubChapterRangeEmpty,
+	EpubCoverInvalid,
 	EpubNotFound,
 	EpubNotReady,
 } from "./epub/epub.service.js";
@@ -55,4 +56,5 @@ export type DomainError =
 	| MangaFetcherFetchFailed
 	| EpubNotFound
 	| EpubNotReady
-	| EpubChapterRangeEmpty;
+	| EpubChapterRangeEmpty
+	| EpubCoverInvalid;

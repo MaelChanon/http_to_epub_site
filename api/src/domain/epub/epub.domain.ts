@@ -32,6 +32,18 @@ export class MangaEpubs extends Schema.Class<MangaEpubs>("MangaEpubs")({
 	epubs: Schema.Array(Epub),
 }) {}
 
+export const EpubCoverContentType = Schema.Literal(
+	"image/jpeg",
+	"image/png",
+	"image/webp",
+);
+
+export class UploadEpubCoverPayload extends Schema.Class<UploadEpubCoverPayload>(
+	"UploadEpubCoverPayload",
+)({
+	contentType: EpubCoverContentType,
+	data: Schema.NonEmptyTrimmedString,
+}) {}
 export class CreateEpubPayload extends Schema.Class<CreateEpubPayload>(
 	"CreateEpubPayload",
 )({
@@ -42,4 +54,13 @@ export class CreateEpubPayload extends Schema.Class<CreateEpubPayload>(
 	splitDoublePage: Schema.Boolean,
 	creator: Schema.optional(Schema.NonEmptyTrimmedString),
 	filename: Schema.NonEmptyTrimmedString,
+	cover: Schema.optional(UploadEpubCoverPayload),
+}) {}
+
+export type EpubCoverContentType = typeof EpubCoverContentType.Type;
+
+export class EpubCoverUpload extends Schema.Class<EpubCoverUpload>(
+	"EpubCoverUpload",
+)({
+	coverKey: Schema.NonEmptyTrimmedString,
 }) {}

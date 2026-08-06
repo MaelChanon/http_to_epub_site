@@ -2,6 +2,8 @@ import * as crypto from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { Cause, Data, Effect, Exit, Option } from "effect";
+import { DB, DBLayer } from "../../../drizzle/db.js";
+import { toSQLError } from "../../../drizzle/schema/utils.js";
 import { appConfig } from "../../config.js";
 import { MangaDbId } from "../manga/manga.domain.js";
 import { MangaRepository } from "../manga/manga.repository.js";
@@ -15,14 +17,23 @@ import { MangaProviderNotLinked } from "../scanProvider/scanProvider.service.js"
 import type { User } from "../user/user.domain.js";
 import {
 	type CreateEpubPayload,
+	EpubCoverUpload,
 	EpubId,
 	type EpubStatus,
 	MangaEpubs,
+	type UploadEpubCoverPayload,
 } from "./epub.domain.js";
 import { sanitizeFilename } from "./epub.filename.js";
 import { EpubRepository } from "./epub.repository.js";
 
-const INTERNAL_PRESIGN_TTL_SECONDS = 6 * 60 * 60;
+const INTERNAL_PRESIGN_TTL_SECONDS = 60 * 60 * 60;
+const MAX_COVER_BYTES = 8 * 1024 * 1024;
+
+const COVER_EXTENSION_BY_CONTENT_TYPE = {
+	"image/jpeg": "jpg",
+	"image/png": "png",
+	"image/webp": "webp",
+} as const;
 
 export class EpubNotFound extends Data.TaggedError("EpubNotFound")<{
 	readonly id: EpubId;
@@ -65,6 +76,14 @@ export class EpubFileReadFailed extends Data.TaggedError("EpubFileReadFailed")<{
 	}
 }
 
+export class EpubCoverInvalid extends Data.TaggedError("EpubCoverInvalid")<{
+	readonly reason: string;
+}> {
+	get internalMessage() {
+		return `invalid epub cover upload: ${this.reason}`;
+	}
+}
+
 export class EpubService extends Effect.Service<EpubService>()(
 	"api/EpubService",
 	{
@@ -72,6 +91,7 @@ export class EpubService extends Effect.Service<EpubService>()(
 			const config = yield* appConfig;
 			const epubRepo = yield* EpubRepository;
 			const mangaRepo = yield* MangaRepository;
+			const db = yield* DB;
 			const providerRepo = yield* ProviderRepository;
 			const scanProviderRepo = yield* ScanProviderRepository;
 			const s3 = yield* S3Service;
@@ -113,10 +133,15 @@ export class EpubService extends Effect.Service<EpubService>()(
 								}),
 						);
 
-						const coverUrl = yield* s3.manga.getUrl(
-							row.manga.path,
-							INTERNAL_PRESIGN_TTL_SECONDS,
-						);
+						const coverUrl = row.coverKey
+							? yield* s3.user.getUrl(
+									row.coverKey,
+									INTERNAL_PRESIGN_TTL_SECONDS,
+								)
+							: yield* s3.manga.getUrl(
+									row.manga.path,
+									INTERNAL_PRESIGN_TTL_SECONDS,
+								);
 
 						const outputPath = path.join(
 							config.epubOutputDir,
@@ -148,7 +173,23 @@ export class EpubService extends Effect.Service<EpubService>()(
 							return built.fileSizeBytes;
 						}).pipe(
 							Effect.ensuring(
-								Effect.promise(() => fs.rm(outputPath, { force: true })),
+								Effect.all(
+									[
+										Effect.promise(() => fs.rm(outputPath, { force: true })),
+										row.coverKey
+											? s3.user
+													.deleteObjects([row.coverKey])
+													.pipe(
+														Effect.catchAll((error) =>
+															Effect.logError(
+																`failed to delete temp cover ${row.coverKey}: ${error}`,
+															),
+														),
+													)
+											: Effect.void,
+									],
+									{ discard: true },
+								),
 							),
 						);
 					});
@@ -170,6 +211,32 @@ export class EpubService extends Effect.Service<EpubService>()(
 							),
 						),
 					);
+				});
+			}
+
+			function uploadCover(user: User, payload: UploadEpubCoverPayload) {
+				return Effect.gen(function* () {
+					const bytes = yield* Effect.try({
+						try: () => new Uint8Array(Buffer.from(payload.data, "base64")),
+						catch: () =>
+							new EpubCoverInvalid({ reason: "data is not valid base64" }),
+					});
+
+					if (bytes.byteLength === 0 || bytes.byteLength > MAX_COVER_BYTES) {
+						return yield* Effect.fail(
+							new EpubCoverInvalid({
+								reason: `size ${bytes.byteLength} bytes is out of bounds`,
+							}),
+						);
+					}
+
+					const extension =
+						COVER_EXTENSION_BY_CONTENT_TYPE[payload.contentType];
+					const coverKey = `temp/${user.id}/${crypto.randomUUID()}.${extension}`;
+
+					yield* s3.user.upload(coverKey, bytes, payload.contentType);
+
+					return new EpubCoverUpload({ coverKey });
 				});
 			}
 
@@ -205,12 +272,21 @@ export class EpubService extends Effect.Service<EpubService>()(
 							}),
 						);
 					}
+					const manga = yield* db.query.mangas
+						.findFirst({
+							where: { id: mangaDbId },
+						})
+						.pipe(Effect.mapError(toSQLError));
 
 					const id = crypto.randomUUID();
 					const filename = sanitizeFilename(payload.filename);
 					const s3Key = `${user.id}/${mangaDbId}/${provider}/${id}.epub`;
 					const creator = payload.creator?.trim() || user.pseudo;
 
+					let coverKey = manga?.path;
+					if (payload.cover) {
+						coverKey = (yield* uploadCover(user, payload.cover)).coverKey;
+					}
 					yield* epubRepo.insertPending({
 						id,
 						userId: user.id,
@@ -224,6 +300,7 @@ export class EpubService extends Effect.Service<EpubService>()(
 						creator,
 						filename,
 						s3Key,
+						coverKey: coverKey,
 					});
 
 					yield* Effect.forkDaemon(
@@ -293,12 +370,14 @@ export class EpubService extends Effect.Service<EpubService>()(
 			}
 
 			return {
+				uploadCover,
 				requestGeneration,
 				listForUser,
 				getDownloadUrl,
 			} as const;
 		}),
 		dependencies: [
+			DBLayer,
 			EpubRepository.Default,
 			MangaRepository.Default,
 			ProviderRepository.Default,

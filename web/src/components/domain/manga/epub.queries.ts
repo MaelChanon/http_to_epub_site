@@ -25,7 +25,6 @@ export function useEpubs() {
 				: false,
 	});
 }
-
 export function useGenerateEpub(
 	mangaId: AniListId,
 	provider: MangaProviderName,

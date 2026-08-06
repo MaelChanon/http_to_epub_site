@@ -1,0 +1,1 @@
+ALTER TABLE "epubs" ADD COLUMN "cover_key" text;

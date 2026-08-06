@@ -25,6 +25,8 @@ export type {
 	CreateEpubPayload,
 	CreateUserPayload,
 	Epub,
+	EpubCoverContentType,
+	EpubCoverUpload,
 	Manga,
 	MangaEpubs,
 	MangaProviderChapters,
