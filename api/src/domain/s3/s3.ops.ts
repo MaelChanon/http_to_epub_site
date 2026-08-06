@@ -41,10 +41,10 @@ const s3RetrySchedule = Schedule.exponential("200 millis").pipe(
 	Schedule.intersect(Schedule.recurs(4)),
 );
 
-const toS3Error = (operation: string) => (e: unknown) =>
+const toS3Error = (operation: string, key?: string) => (e: unknown) =>
 	new S3Error({
 		operation,
-		message: e instanceof Error ? e.message : String(e),
+		message: `${key} ${e instanceof Error ? e.message : String(e)}`,
 	});
 
 export function makeS3Operations(
@@ -63,7 +63,7 @@ export function makeS3Operations(
 						ContentType: contentType,
 					}),
 				),
-			catch: toS3Error("upload"),
+			catch: toS3Error("upload", key),
 		}).pipe(Effect.asVoid);
 	}
 
@@ -85,7 +85,7 @@ export function makeS3Operations(
 						expiresIn: expiresInSeconds,
 					},
 				),
-			catch: toS3Error("getUrl"),
+			catch: toS3Error("getUrl", key),
 		});
 	}
 
@@ -97,7 +97,7 @@ export function makeS3Operations(
 				catch: (e) =>
 					e instanceof NoSuchKey
 						? new S3ObjectNotFound({ key })
-						: toS3Error(`download ${key}`)(e),
+						: toS3Error(`download ${key}`, key)(e),
 			});
 
 			const body = response.Body;
@@ -107,7 +107,7 @@ export function makeS3Operations(
 
 			return yield* Effect.tryPromise({
 				try: () => body.transformToByteArray(),
-				catch: toS3Error(`download ${key}`),
+				catch: toS3Error(`download ${key}`, key),
 			});
 		}).pipe(
 			Effect.retry({
