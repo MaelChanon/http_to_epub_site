@@ -2,8 +2,7 @@ import * as crypto from "node:crypto";
 import * as fs from "node:fs/promises";
 import * as path from "node:path";
 import { Cause, Data, Effect, Exit, Option } from "effect";
-import { DB, DBLayer } from "../../../drizzle/db.js";
-import { toSQLError } from "../../../drizzle/schema/utils.js";
+import { DBLayer } from "../../../drizzle/db.js";
 import { appConfig } from "../../config.js";
 import { MangaDbId } from "../manga/manga.domain.js";
 import { MangaRepository } from "../manga/manga.repository.js";
@@ -91,12 +90,50 @@ export class EpubService extends Effect.Service<EpubService>()(
 			const config = yield* appConfig;
 			const epubRepo = yield* EpubRepository;
 			const mangaRepo = yield* MangaRepository;
-			const db = yield* DB;
 			const providerRepo = yield* ProviderRepository;
 			const scanProviderRepo = yield* ScanProviderRepository;
 			const s3 = yield* S3Service;
 			const mangaFetcher = yield* MangaFetcherService;
 
+			const cleanupTemp = (outputPath: string, coverKey: string | null) =>
+				Effect.all(
+					[
+						Effect.promise(() => fs.rm(outputPath, { force: true })),
+						coverKey
+							? s3.user
+									.deleteObjects([coverKey])
+									.pipe(
+										Effect.catchAll((error) =>
+											Effect.logError(
+												`failed to delete temp cover ${coverKey}: ${error}`,
+											),
+										),
+									)
+							: Effect.void,
+					],
+					{ discard: true, concurrency: 2 },
+				);
+
+			const persistStatus =
+				(epubId: string) => (exit: Exit.Exit<number, unknown>) =>
+					Exit.match(exit, {
+						onSuccess: (fileSizeBytes) =>
+							epubRepo.updateStatus(epubId, { status: "DONE", fileSizeBytes }),
+						onFailure: (cause) =>
+							Effect.logError(
+								`epub generation failed for ${epubId}: ${Cause.pretty(cause)}`,
+							).pipe(
+								Effect.andThen(
+									epubRepo.updateStatus(epubId, { status: "FAILED" }),
+								),
+							),
+					}).pipe(
+						Effect.catchAllCause((cause) =>
+							Effect.logError(
+								`failed to persist epub status for ${epubId}: ${cause}`,
+							),
+						),
+					);
 			function generate(epubId: string) {
 				return Effect.gen(function* () {
 					const row = yield* epubRepo.findById(epubId);
@@ -106,9 +143,11 @@ export class EpubService extends Effect.Service<EpubService>()(
 						);
 					}
 
-					yield* epubRepo.markProcessing(epubId);
+					yield* epubRepo.updateStatus(epubId, { status: "PROCESSING" });
 
-					const work = Effect.gen(function* () {
+					const outputPath = path.join(config.epubOutputDir, `${epubId}.epub`);
+
+					yield* Effect.gen(function* () {
 						const chapterRows = yield* scanProviderRepo.findChaptersInRange(
 							MangaDbId.make(row.mangaId),
 							row.providerId,
@@ -123,93 +162,46 @@ export class EpubService extends Effect.Service<EpubService>()(
 									const sortedPages = chapter.pages
 										.slice()
 										.sort((a, b) => a.number - b.number);
-									const pageUrls = yield* Effect.forEach(
+									const pages = yield* Effect.forEach(
 										sortedPages,
 										(page) =>
 											s3.manga.getUrl(page.path, INTERNAL_PRESIGN_TTL_SECONDS),
 										{ concurrency: 5 },
 									);
-									return { chapterNumber: chapter.number, pages: pageUrls };
+									return { chapterNumber: chapter.number, pages };
 								}),
 						);
 
-						const coverUrl = row.coverKey
-							? yield* s3.user.getUrl(
-									row.coverKey,
-									INTERNAL_PRESIGN_TTL_SECONDS,
-								)
-							: yield* s3.manga.getUrl(
-									row.manga.path,
-									INTERNAL_PRESIGN_TTL_SECONDS,
-								);
-
-						const outputPath = path.join(
-							config.epubOutputDir,
-							`${epubId}.epub`,
+						const coverUrl = yield* s3.user.getUrl(
+							row.coverKey ?? row.manga.path,
+							INTERNAL_PRESIGN_TTL_SECONDS,
 						);
 
-						return yield* Effect.gen(function* () {
-							const built = yield* mangaFetcher.buildEpub({
-								tag: String(row.manga.mangaId),
-								name: row.manga.titleNative,
-								coverUrl,
-								creator: row.creator,
-								lang: "fr-FR",
-								width: row.width,
-								height: row.height,
-								splitDoublePage: row.splitDoublePage,
-								chapters: chapterInputs,
-								outputPath,
-							});
+						const built = yield* mangaFetcher.buildEpub({
+							tag: String(row.manga.mangaId),
+							name: row.manga.titleNative,
+							coverUrl,
+							creator: row.creator,
+							lang: "fr-FR",
+							width: row.width,
+							height: row.height,
+							splitDoublePage: row.splitDoublePage,
+							chapters: chapterInputs,
+							outputPath,
+						});
 
-							const bytes = yield* Effect.tryPromise({
-								try: () => fs.readFile(outputPath),
-								catch: (cause) =>
-									new EpubFileReadFailed({ path: outputPath, cause }),
-							});
+						const bytes = yield* Effect.tryPromise({
+							try: () => fs.readFile(outputPath),
+							catch: (cause) =>
+								new EpubFileReadFailed({ path: outputPath, cause }),
+						});
 
-							yield* s3.user.upload(row.s3Key, bytes, "application/epub+zip");
+						yield* s3.user.upload(row.s3Key, bytes, "application/epub+zip");
 
-							return built.fileSizeBytes;
-						}).pipe(
-							Effect.ensuring(
-								Effect.all(
-									[
-										Effect.promise(() => fs.rm(outputPath, { force: true })),
-										row.coverKey
-											? s3.user
-													.deleteObjects([row.coverKey])
-													.pipe(
-														Effect.catchAll((error) =>
-															Effect.logError(
-																`failed to delete temp cover ${row.coverKey}: ${error}`,
-															),
-														),
-													)
-											: Effect.void,
-									],
-									{ discard: true },
-								),
-							),
-						);
-					});
-
-					yield* work.pipe(
-						Effect.onExit((exit) =>
-							Exit.match(exit, {
-								onSuccess: (value) => epubRepo.markDone(epubId, value),
-								onFailure: (cause) =>
-									Effect.logError(
-										`epub generation failed for ${epubId}: ${Cause.pretty(cause)}`,
-									).pipe(Effect.andThen(epubRepo.markFailed(epubId))),
-							}).pipe(
-								Effect.catchAllCause((cause) =>
-									Effect.logError(
-										`failed to persist epub status for ${epubId}: ${cause}`,
-									),
-								),
-							),
-						),
+						return built.fileSizeBytes;
+					}).pipe(
+						Effect.ensuring(cleanupTemp(outputPath, row.coverKey)),
+						Effect.onExit(persistStatus(epubId)),
 					);
 				});
 			}
@@ -272,22 +264,17 @@ export class EpubService extends Effect.Service<EpubService>()(
 							}),
 						);
 					}
-					const manga = yield* db.query.mangas
-						.findFirst({
-							where: { id: mangaDbId },
-						})
-						.pipe(Effect.mapError(toSQLError));
 
 					const id = crypto.randomUUID();
 					const filename = sanitizeFilename(payload.filename);
 					const s3Key = `${user.id}/${mangaDbId}/${provider}/${id}.epub`;
 					const creator = payload.creator?.trim() || user.pseudo;
 
-					let coverKey = manga?.path;
+					let coverKey: string | undefined;
 					if (payload.cover) {
 						coverKey = (yield* uploadCover(user, payload.cover)).coverKey;
 					}
-					yield* epubRepo.insertPending({
+					yield* epubRepo.insert({
 						id,
 						userId: user.id,
 						mangaId: mangaDbId,

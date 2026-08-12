@@ -4,7 +4,6 @@ import { AuthService } from "./auth/auth.service.js";
 import { EpubCronLive } from "./domain/epub/epub.cron.js";
 import { EpubRepository } from "./domain/epub/epub.repository.js";
 import { EpubService } from "./domain/epub/epub.service.js";
-import { FavoriteService } from "./domain/favorite/favorite.service.js";
 import { MangaRepository } from "./domain/manga/manga.repository.js";
 import { MangaService } from "./domain/manga/manga.service.js";
 import { MangaProviderService } from "./domain/mangaProvider/mangaProvider.service.js";
@@ -32,7 +31,6 @@ const ServicesLive = Layer.mergeAll(
 	MangaProviderService.Default,
 	MangaRepository.Default,
 	MangaService.Default,
-	FavoriteService.Default,
 	ScanProviderService.Default,
 	ScanEventsService.Default,
 	ProviderCatalogService.Default,

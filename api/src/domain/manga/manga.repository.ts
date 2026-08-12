@@ -1,5 +1,7 @@
+import { and, eq } from "drizzle-orm";
 import { Effect } from "effect";
 import { DB, DBLayer } from "../../../drizzle/db.js";
+import { favorites } from "../../../drizzle/schema/favorites.js";
 import { toSQLError } from "../../../drizzle/schema/utils.js";
 import {
 	AniListId,
@@ -62,7 +64,50 @@ export class MangaRepository extends Effect.Service<MangaRepository>()(
 					.pipe(Effect.mapError(toSQLError));
 			}
 
-			return { toManga, listWithEpubsForUser } as const;
+			function addFavorite(userId: UserId, mangaId: MangaDbId) {
+				return db
+					.insert(favorites)
+					.values({ userId, mangaId })
+					.onConflictDoNothing()
+					.pipe(Effect.mapError(toSQLError), Effect.asVoid);
+			}
+
+			function removeFavorite(userId: UserId, mangaId: MangaDbId) {
+				return db
+					.delete(favorites)
+					.where(
+						and(eq(favorites.userId, userId), eq(favorites.mangaId, mangaId)),
+					)
+					.pipe(Effect.mapError(toSQLError), Effect.asVoid);
+			}
+
+			function isFavorite(userId: UserId, mangaId: MangaDbId) {
+				return db.query.favorites
+					.findFirst({ where: { userId, mangaId } })
+					.pipe(
+						Effect.mapError(toSQLError),
+						Effect.map((row) => row !== undefined),
+					);
+			}
+
+			function listFavoriteIds(userId: UserId) {
+				return db.query.favorites.findMany({ where: { userId } }).pipe(
+					Effect.mapError(toSQLError),
+					Effect.map(
+						(rows): ReadonlySet<MangaDbId> =>
+							new Set(rows.map((row) => row.mangaId as MangaDbId)),
+					),
+				);
+			}
+
+			return {
+				toManga,
+				listWithEpubsForUser,
+				addFavorite,
+				removeFavorite,
+				isFavorite,
+				listFavoriteIds,
+			} as const;
 		}),
 		dependencies: [DBLayer],
 	},

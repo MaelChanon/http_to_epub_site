@@ -17,33 +17,22 @@ export class EpubRepository extends Effect.Service<EpubRepository>()(
 		effect: Effect.gen(function* () {
 			const db = yield* DB;
 
-			function insertPending(params: InsertEpubParams) {
+			function insert(params: InsertEpubParams) {
 				return db
 					.insert(epubs)
 					.values(params)
 					.pipe(Effect.mapError(toSQLError));
 			}
 
-			function markProcessing(id: string) {
+			function updateStatus(
+				id: string,
+				data:
+					| { status: EpubStatus }
+					| { status: "DONE"; fileSizeBytes: number },
+			) {
 				return db
 					.update(epubs)
-					.set({ status: "PROCESSING", updatedAt: new Date() })
-					.where(eq(epubs.id, id))
-					.pipe(Effect.mapError(toSQLError));
-			}
-
-			function markDone(id: string, fileSizeBytes: number) {
-				return db
-					.update(epubs)
-					.set({ status: "DONE", fileSizeBytes, updatedAt: new Date() })
-					.where(eq(epubs.id, id))
-					.pipe(Effect.mapError(toSQLError));
-			}
-
-			function markFailed(id: string) {
-				return db
-					.update(epubs)
-					.set({ status: "FAILED", updatedAt: new Date() })
+					.set({ ...data, updatedAt: new Date() })
 					.where(eq(epubs.id, id))
 					.pipe(Effect.mapError(toSQLError));
 			}
@@ -107,10 +96,8 @@ export class EpubRepository extends Effect.Service<EpubRepository>()(
 
 			return {
 				toEpub,
-				insertPending,
-				markProcessing,
-				markDone,
-				markFailed,
+				insert,
+				updateStatus,
 				findById,
 				failStale,
 			} as const;

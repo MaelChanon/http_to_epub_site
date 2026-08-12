@@ -12,14 +12,18 @@ import {
 	toSQLError,
 } from "../../../drizzle/schema/utils.js";
 import { EpubRepository } from "../epub/epub.repository.js";
-import { FavoriteService } from "../favorite/favorite.service.js";
 import {
 	AniListId,
 	type MangaProviderData,
 } from "../mangaProvider/mangaProvider.domain.js";
 import { S3Service } from "../s3/s3.service.js";
 import type { UserId } from "../user/user.domain.js";
-import { MangaDbId, MangaSummary, MangaWithEpub } from "./manga.domain.js";
+import {
+	Manga,
+	MangaDbId,
+	MangaSummary,
+	MangaWithEpub,
+} from "./manga.domain.js";
 import { MangaRepository } from "./manga.repository.js";
 
 export class MangaNotFound extends Data.TaggedError("MangaNotFound")<{
@@ -37,7 +41,6 @@ export class MangaService extends Effect.Service<MangaService>()(
 			const db = yield* DB;
 			const s3 = yield* S3Service;
 			const epubRepo = yield* EpubRepository;
-			const favoriteService = yield* FavoriteService;
 			const mangaRepo = yield* MangaRepository;
 
 			function getCoverPresignedUrl(mangaId: AniListId) {
@@ -74,7 +77,7 @@ export class MangaService extends Effect.Service<MangaService>()(
 						return yield* Effect.fail(new MangaNotFound({ mangaId }));
 					}
 
-					const isFavorite = yield* favoriteService.isFavorite(
+					const isFavorite = yield* mangaRepo.isFavorite(
 						userId,
 						MangaDbId.make(row.id),
 					);
@@ -100,7 +103,7 @@ export class MangaService extends Effect.Service<MangaService>()(
 						})
 						.pipe(Effect.mapError(toSQLError));
 
-					const favoriteIds = yield* favoriteService.listMangaIds(userId);
+					const favoriteIds = yield* mangaRepo.listFavoriteIds(userId);
 
 					return rows.map((row) => {
 						const latestChapterAt = row.chapters.reduce<Date | null>(
@@ -202,17 +205,34 @@ export class MangaService extends Effect.Service<MangaService>()(
 					.pipe(Effect.catchTag("SqlError", toSQLError));
 			}
 
+			function addFavorite(mangaId: AniListId, userId: UserId) {
+				return Effect.gen(function* () {
+					const manga = yield* getManga(mangaId, userId);
+					yield* mangaRepo.addFavorite(userId, manga.id);
+					return new Manga({ ...manga, isFavorite: true });
+				});
+			}
+
+			function removeFavorite(mangaId: AniListId, userId: UserId) {
+				return Effect.gen(function* () {
+					const manga = yield* getManga(mangaId, userId);
+					yield* mangaRepo.removeFavorite(userId, manga.id);
+					return new Manga({ ...manga, isFavorite: false });
+				});
+			}
+
 			return {
 				createManga,
 				getManga,
 				listMangas,
 				getCoverPresignedUrl,
+				addFavorite,
+				removeFavorite,
 			} as const;
 		}),
 		dependencies: [
 			DBLayer,
 			S3Service.Default,
-			FavoriteService.Default,
 			EpubRepository.Default,
 			MangaRepository.Default,
 		],

@@ -3,10 +3,8 @@ import { Effect } from "effect";
 import { CurrentUser } from "../../auth/auth.middleware.js";
 import { Api } from "../../http/api.js";
 import { toHttpError } from "../../http/error.js";
-import { FavoriteService } from "../favorite/favorite.service.js";
 import { MangaProviderService } from "../mangaProvider/mangaProvider.service.js";
 import { requirePermission } from "../user/permission.js";
-import { Manga } from "./manga.domain.js";
 import { MangaService } from "./manga.service.js";
 
 export const MangaApiGroupLive = HttpApiBuilder.group(
@@ -16,7 +14,6 @@ export const MangaApiGroupLive = HttpApiBuilder.group(
 		Effect.gen(function* () {
 			const mangaService = yield* MangaService;
 			const mangaProviderService = yield* MangaProviderService;
-			const favoriteService = yield* FavoriteService;
 
 			return handlers
 				.handle("listMangas", () =>
@@ -71,17 +68,13 @@ export const MangaApiGroupLive = HttpApiBuilder.group(
 				.handle("addFavorite", ({ path }) =>
 					Effect.gen(function* () {
 						const user = yield* CurrentUser;
-						const manga = yield* mangaService.getManga(path.mangaId, user.id);
-						yield* favoriteService.add(user.id, manga.id);
-						return new Manga({ ...manga, isFavorite: true });
+						return yield* mangaService.addFavorite(path.mangaId, user.id);
 					}).pipe(Effect.catchAll(toHttpError)),
 				)
 				.handle("removeFavorite", ({ path }) =>
 					Effect.gen(function* () {
 						const user = yield* CurrentUser;
-						const manga = yield* mangaService.getManga(path.mangaId, user.id);
-						yield* favoriteService.remove(user.id, manga.id);
-						return new Manga({ ...manga, isFavorite: false });
+						return yield* mangaService.removeFavorite(path.mangaId, user.id);
 					}).pipe(Effect.catchAll(toHttpError)),
 				);
 		}),
