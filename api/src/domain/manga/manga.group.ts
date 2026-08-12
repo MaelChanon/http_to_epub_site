@@ -5,7 +5,7 @@ import {
 	AniListIdFromString,
 	AniListSearchResult,
 } from "../mangaProvider/mangaProvider.domain.js";
-import { Manga, MangaSummary, MangaWithEpub } from "./manga.domain.js";
+import { MangaSummary, MangaWithEpub } from "./manga.domain.js";
 
 const MangaPath = Schema.Struct({ mangaId: AniListIdFromString });
 
@@ -43,13 +43,13 @@ export class MangaApiGroup extends HttpApiGroup.make("manga")
 	)
 	.add(
 		HttpApiEndpoint.put("addFavorite", "/manga/:mangaId/favorite")
-			.addSuccess(Manga)
+			.addSuccess(MangaWithEpub)
 			.middleware(Authentication)
 			.setPath(MangaPath),
 	)
 	.add(
 		HttpApiEndpoint.del("removeFavorite", "/manga/:mangaId/favorite")
-			.addSuccess(Manga)
+			.addSuccess(MangaWithEpub)
 			.middleware(Authentication)
 			.setPath(MangaPath),
 	) {}

@@ -18,12 +18,7 @@ import {
 } from "../mangaProvider/mangaProvider.domain.js";
 import { S3Service } from "../s3/s3.service.js";
 import type { UserId } from "../user/user.domain.js";
-import {
-	Manga,
-	MangaDbId,
-	MangaSummary,
-	MangaWithEpub,
-} from "./manga.domain.js";
+import { MangaDbId, MangaSummary, MangaWithEpub } from "./manga.domain.js";
 import { MangaRepository } from "./manga.repository.js";
 
 export class MangaNotFound extends Data.TaggedError("MangaNotFound")<{
@@ -209,7 +204,7 @@ export class MangaService extends Effect.Service<MangaService>()(
 				return Effect.gen(function* () {
 					const manga = yield* getManga(mangaId, userId);
 					yield* mangaRepo.addFavorite(userId, manga.id);
-					return new Manga({ ...manga, isFavorite: true });
+					return new MangaWithEpub({ ...manga, isFavorite: true });
 				});
 			}
 
@@ -217,7 +212,7 @@ export class MangaService extends Effect.Service<MangaService>()(
 				return Effect.gen(function* () {
 					const manga = yield* getManga(mangaId, userId);
 					yield* mangaRepo.removeFavorite(userId, manga.id);
-					return new Manga({ ...manga, isFavorite: false });
+					return new MangaWithEpub({ ...manga, isFavorite: false });
 				});
 			}
 

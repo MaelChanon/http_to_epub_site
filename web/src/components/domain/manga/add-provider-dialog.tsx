@@ -58,7 +58,6 @@ export function AddProviderDialog({
 		if (open) {
 			const defaultQuery =
 				manga.titleRomaji ?? manga.titleEnglish ?? manga.titleNative;
-			console.log(manga);
 			setProvider(missing[0]);
 			setQuery(defaultQuery);
 			setDebouncedQuery(defaultQuery);
