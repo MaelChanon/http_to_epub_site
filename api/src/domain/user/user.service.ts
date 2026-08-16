@@ -3,7 +3,6 @@ import { EncryptService } from "../../encrypt/encryptService.js";
 import type { Permission } from "./permission.js";
 import type { UserId } from "./user.domain.js";
 import { UsersRepository } from "./user.repository.js";
-import type { CreateUserPayload } from "./user.schema.js";
 
 export class UserService extends Effect.Service<UserService>()(
 	"api/UserService",
@@ -12,15 +11,23 @@ export class UserService extends Effect.Service<UserService>()(
 			const repo = yield* UsersRepository;
 			const encryption = yield* EncryptService;
 
-			function createUser(payload: CreateUserPayload) {
+			function createUser(data: {
+				pseudo: string;
+				email: string;
+				password: string;
+				permissions: readonly Permission[];
+				isAdmin: boolean;
+			}) {
 				return Effect.gen(function* () {
-					const hashedPassword = yield* encryption.hash(payload.password);
-					return yield* repo.create({
-						pseudo: payload.pseudo,
-						email: payload.email,
-						password: hashedPassword,
-						permissions: payload.permissions,
-					});
+					const hashedPassword = yield* encryption.hash(data.password);
+					return yield* repo.create({ ...data, password: hashedPassword });
+				});
+			}
+
+			function setPassword(id: UserId, password: string) {
+				return Effect.gen(function* () {
+					const hashedPassword = yield* encryption.hash(password);
+					return yield* repo.updatePassword(id, hashedPassword);
 				});
 			}
 
@@ -57,6 +64,7 @@ export class UserService extends Effect.Service<UserService>()(
 
 			return {
 				createUser,
+				setPassword,
 				countUsers,
 				getUserById,
 				getUserByEmail,

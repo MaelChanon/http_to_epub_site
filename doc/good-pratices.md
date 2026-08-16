@@ -98,7 +98,8 @@ const { register, handleSubmit } = useForm<LoginFormValues>({
 </form>;
 ```
 
-See `web/src/routes/login.tsx` and `web/src/routes/signup.tsx` for a
-complete example, with custom fields (`TextField`, `PasswordField`) that
+See `web/src/routes/login.tsx` and
+`web/src/components/auth/account-form.tsx` for a complete example, with
+custom fields (`TextField`, `PasswordField`) that
 receive the result of `register(...)` via a `registration` prop instead of
 `value`/`onChange`.

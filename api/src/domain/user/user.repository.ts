@@ -61,6 +61,7 @@ export class UsersRepository extends Effect.Service<UsersRepository>()(
 				email: string;
 				password: string;
 				permissions: readonly Permission[];
+				isAdmin: boolean;
 			}) {
 				return db
 					.transaction((tx) =>
@@ -71,6 +72,7 @@ export class UsersRepository extends Effect.Service<UsersRepository>()(
 									pseudo: data.pseudo,
 									email: data.email,
 									password: data.password,
+									isAdmin: data.isAdmin,
 								})
 								.returning()
 								.pipe(
@@ -201,6 +203,14 @@ export class UsersRepository extends Effect.Service<UsersRepository>()(
 					.pipe(Effect.catchTag("SqlError", toSQLError));
 			}
 
+			function updatePassword(id: UserId, password: string) {
+				return db
+					.update(users)
+					.set({ password })
+					.where(eq(users.id, id))
+					.pipe(Effect.mapError(toSQLError), Effect.asVoid);
+			}
+
 			function deleteUser(id: UserId) {
 				return db
 					.delete(users)
@@ -216,6 +226,7 @@ export class UsersRepository extends Effect.Service<UsersRepository>()(
 				count,
 				listNonAdmin,
 				setPermissions,
+				updatePassword,
 				deleteUser,
 			} as const;
 		}),

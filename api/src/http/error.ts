@@ -66,6 +66,7 @@ export const toHttpError = (
 					"SQLError",
 					"EncryptionFailed",
 					"SessionStoreError",
+					"MagicLinkStoreError",
 					"S3Error",
 					"ArchiveError",
 					"MangaProviderRequestFailed",
@@ -105,6 +106,13 @@ export const toHttpError = (
 					Effect.fail(
 						new BadRequestError({
 							message: "Invalid cover image",
+						}),
+					),
+				),
+				Match.tag("MagicLinkNotFound", () =>
+					Effect.fail(
+						new NotFoundError({
+							message: "This link is invalid or has expired",
 						}),
 					),
 				),

@@ -1,6 +1,6 @@
 import type { Permission } from "@/lib/api";
 
-export const GRID_COLS = "grid-cols-[1fr_76px_76px_76px_76px_40px]";
+export const GRID_COLS = "grid-cols-[1fr_76px_76px_76px_76px_40px_40px]";
 
 export const permissionLabels: Record<Permission, string> = {
 	MANGA_METADATA_REFRESH: "Metadata",

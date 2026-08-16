@@ -6,8 +6,9 @@ import {
 	GRID_COLS,
 	permissionLabels,
 } from "@/components/domain/admin/admin.util";
-import { CreateUserDialog } from "@/components/domain/admin/create-user-dialog";
 import { DeleteUserDialog } from "@/components/domain/admin/delete-user-dialog";
+import { InviteUserDialog } from "@/components/domain/admin/invite-user-dialog";
+import { ResetLinkDialog } from "@/components/domain/admin/reset-link-dialog";
 import { UserRow } from "@/components/domain/admin/user-row";
 import { Header } from "@/components/header";
 import { IconPlus } from "@/components/icons";
@@ -34,7 +35,8 @@ export const Route = createFileRoute("/admin/users")({
 
 function AdminUsersPage() {
 	const { data: users, isPending } = useAdminUsers();
-	const [createOpen, setCreateOpen] = useState(false);
+	const [inviteOpen, setInviteOpen] = useState(false);
+	const [resetTarget, setResetTarget] = useState<User>();
 	const [deleteTarget, setDeleteTarget] = useState<User>();
 
 	return (
@@ -56,11 +58,11 @@ function AdminUsersPage() {
 					</div>
 					<Button
 						type="button"
-						onClick={() => setCreateOpen(true)}
+						onClick={() => setInviteOpen(true)}
 						className="h-9 gap-1.5 rounded-sm bg-(--brand) px-3.5 text-[13px] text-(--brand-contrast) hover:bg-(--brand)/90"
 					>
 						<IconPlus className="size-3.5" />
-						Create user
+						Invite user
 					</Button>
 				</div>
 
@@ -72,7 +74,7 @@ function AdminUsersPage() {
 
 				{!isPending && users && users.length === 0 && (
 					<p className="py-16 text-center font-mono text-[12px] text-(--ink-muted)">
-						no users yet — create the first one
+						no users yet — invite someone
 					</p>
 				)}
 
@@ -88,12 +90,14 @@ function AdminUsersPage() {
 								</span>
 							))}
 							<span />
+							<span />
 						</div>
 
 						{users.map((user) => (
 							<UserRow
 								key={user.id}
 								user={user}
+								onRequestReset={() => setResetTarget(user)}
 								onRequestDelete={() => setDeleteTarget(user)}
 							/>
 						))}
@@ -101,7 +105,12 @@ function AdminUsersPage() {
 				)}
 			</main>
 
-			<CreateUserDialog open={createOpen} onOpenChange={setCreateOpen} />
+			<InviteUserDialog open={inviteOpen} onOpenChange={setInviteOpen} />
+
+			<ResetLinkDialog
+				user={resetTarget}
+				onOpenChange={(open) => !open && setResetTarget(undefined)}
+			/>
 
 			<DeleteUserDialog
 				user={deleteTarget}

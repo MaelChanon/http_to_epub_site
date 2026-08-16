@@ -42,9 +42,13 @@ export {
 	ScanEvent,
 } from "../domain/scanProvider/scanProvider.domain.js";
 export {
+	CreateInvitePayload,
 	CreateUserPayload,
 	LoginPayload,
+	MagicLink,
+	PasswordResetPreview,
 	Permission,
+	ResetPasswordPayload,
 	User,
 } from "../domain/user/user.schema.js";
 

@@ -14,6 +14,8 @@ import { ScanEventsService } from "./domain/scanProvider/scanEvents.service.js";
 import { ScanProviderCronLive } from "./domain/scanProvider/scanProvider.cron.js";
 import { ScanProviderRepository } from "./domain/scanProvider/scanProvider.repository.js";
 import { ScanProviderService } from "./domain/scanProvider/scanProvider.service.js";
+import { BootstrapInviteLive } from "./domain/user/bootstrapInvite.js";
+import { MagicLinkService } from "./domain/user/magicLink.service.js";
 import { UsersRepository } from "./domain/user/user.repository.js";
 import { UserService } from "./domain/user/user.service.js";
 import { EncryptService } from "./encrypt/encryptService.js";
@@ -39,10 +41,13 @@ const ServicesLive = Layer.mergeAll(
 	ScanProviderRepository.Default,
 	EpubRepository.Default,
 	EpubService.Default,
+	MagicLinkService.Default,
 );
 
-const WorkersLive = Layer.mergeAll(ScanProviderCronLive, EpubCronLive).pipe(
-	Layer.provide(ServicesLive),
-);
+const WorkersLive = Layer.mergeAll(
+	ScanProviderCronLive,
+	EpubCronLive,
+	BootstrapInviteLive,
+).pipe(Layer.provide(ServicesLive));
 
 export const AppLayer = Layer.mergeAll(ServicesLive, WorkersLive);

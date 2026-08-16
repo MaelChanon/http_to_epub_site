@@ -124,8 +124,16 @@ verified by an `HttpApiMiddleware` (`auth/auth.middleware.ts` declarative +
 `.middleware(Authentication)`. No global frontend auth store — auth state is
 read on demand via React Query (`authKeys.currentUser()`), and route
 protection is a per-route `beforeLoad` guard (no shared layout route yet).
-Full flow, known gaps (no logout UI, no CSRF beyond `sameSite: lax`, no
-password reset): `doc/auth.md`.
+There is **no open registration**: `PUT /api/user` only works while the users
+table is empty (bootstrap admin) or with a single-use invite token; the first
+account created on an instance is always the administrator. On boot, an empty
+users table makes the API print a ready-to-use invite link to the log
+(`domain/user/bootstrapInvite.ts`). Passwords are reset through an
+admin-issued magic link that revokes every session of the target user. Magic links live in Redis
+(`domain/user/magicLink.service.ts`, `GETDEL`-based single use) and are copied
+by hand — there is no mail infrastructure. Full flow, endpoint table and known
+gaps (no logout UI, no CSRF beyond `sameSite: lax`, no self-service password
+change, invitations cannot be revoked): `doc/auth.md`.
 
 ### manga-fetcher native addon
 
@@ -162,8 +170,8 @@ directly yet. Full details incl. one-time cluster bootstrap: `doc/s3.md`.
   (e.g. `authKeys`, colocated with that resource's `*.queries.ts`) rather
   than scattering literal arrays — see `doc/good-pratices.md`.
 - Forms: `react-hook-form`, not per-field `useState` — see
-  `web/src/routes/login.tsx` / `signup.tsx` for the pattern (custom fields
-  take a `registration` prop from `register(...)`).
+  `web/src/routes/login.tsx` / `components/auth/account-form.tsx` for the
+  pattern (custom fields take a `registration` prop from `register(...)`).
 - Routing: TanStack Router, file-based under `web/src/routes/`,
   `routeTree.gen.ts` is generated — don't hand-edit it.
 

@@ -10,10 +10,33 @@ export class CreateUserPayload extends Schema.Class<CreateUserPayload>(
 	pseudo: Schema.NonEmptyTrimmedString,
 	email: Schema.NonEmptyTrimmedString,
 	password: Schema.NonEmptyTrimmedString,
-	permissions: Schema.Array(Permission),
+	token: Schema.optional(Schema.NonEmptyTrimmedString),
 }) {}
 
 export class LoginPayload extends Schema.Class<LoginPayload>("LoginPayload")({
 	email: Schema.NonEmptyTrimmedString,
+	password: Schema.NonEmptyTrimmedString,
+}) {}
+
+export class CreateInvitePayload extends Schema.Class<CreateInvitePayload>(
+	"CreateInvitePayload",
+)({
+	permissions: Schema.Array(Permission),
+}) {}
+
+export class MagicLink extends Schema.Class<MagicLink>("MagicLink")({
+	token: Schema.NonEmptyTrimmedString,
+	expiresInSeconds: Schema.Number,
+}) {}
+
+export class PasswordResetPreview extends Schema.Class<PasswordResetPreview>(
+	"PasswordResetPreview",
+)({
+	pseudo: Schema.NonEmptyTrimmedString,
+}) {}
+
+export class ResetPasswordPayload extends Schema.Class<ResetPasswordPayload>(
+	"ResetPasswordPayload",
+)({
 	password: Schema.NonEmptyTrimmedString,
 }) {}

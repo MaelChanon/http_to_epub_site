@@ -31,6 +31,10 @@ import type {
 	MangaProviderNotLinked,
 	PageNotFound,
 } from "./scanProvider/scanProvider.service.js";
+import type {
+	MagicLinkNotFound,
+	MagicLinkStoreError,
+} from "./user/magicLink.service.js";
 import type { UserNotFound } from "./user/user.repository.js";
 
 export type DomainError =
@@ -40,6 +44,8 @@ export type DomainError =
 	| InvalidSession
 	| MissingSession
 	| SessionStoreError
+	| MagicLinkNotFound
+	| MagicLinkStoreError
 	| S3ObjectNotFound
 	| S3Error
 	| ArchiveError

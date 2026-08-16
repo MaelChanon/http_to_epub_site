@@ -3,6 +3,8 @@ import * as path from "node:path";
 import { Config } from "effect";
 
 const ONE_WEEK_IN_SECONDS = 60 * 60 * 24 * 7;
+const TWO_DAYS_IN_SECONDS = 60 * 60 * 24 * 2;
+const ONE_HOUR_IN_SECONDS = 60 * 60;
 const DEFAULT_EPUB_OUTPUT_DIR = path.join(
 	os.tmpdir(),
 	"http-to-epub-site",
@@ -29,6 +31,8 @@ class AppConfig {
 		readonly corsAllowedOrigins: readonly string[],
 		readonly disableAnilistFetching: boolean,
 		readonly epubOutputDir: string,
+		readonly inviteTtlSeconds: number,
+		readonly passwordResetTtlSeconds: number,
 	) {}
 }
 export const appConfig = Config.map(
@@ -71,6 +75,12 @@ export const appConfig = Config.map(
 		Config.string("EPUB_OUTPUT_DIR").pipe(
 			Config.withDefault(DEFAULT_EPUB_OUTPUT_DIR),
 		),
+		Config.number("INVITE_TTL_SECONDS").pipe(
+			Config.withDefault(TWO_DAYS_IN_SECONDS),
+		),
+		Config.number("PASSWORD_RESET_TTL_SECONDS").pipe(
+			Config.withDefault(ONE_HOUR_IN_SECONDS),
+		),
 	]),
 	([
 		host,
@@ -91,6 +101,8 @@ export const appConfig = Config.map(
 		corsAllowedOrigins,
 		disableAnilistFetching,
 		epubOutputDir,
+		inviteTtlSeconds,
+		passwordResetTtlSeconds,
 	]) =>
 		new AppConfig(
 			host,
@@ -114,5 +126,7 @@ export const appConfig = Config.map(
 				.filter((origin) => origin.length > 0),
 			disableAnilistFetching,
 			epubOutputDir,
+			inviteTtlSeconds,
+			passwordResetTtlSeconds,
 		),
 );

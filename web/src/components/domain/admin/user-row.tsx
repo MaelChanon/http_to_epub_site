@@ -4,15 +4,17 @@ import {
 	initialHue,
 	permissionLabels,
 } from "@/components/domain/admin/admin.util";
-import { IconCheck, IconClose } from "@/components/icons";
+import { IconCheck, IconClose, IconRefresh } from "@/components/icons";
 import type { Permission, User } from "@/lib/api";
 import { Permission as PermissionSchema } from "@/lib/api";
 
 export function UserRow({
 	user,
+	onRequestReset,
 	onRequestDelete,
 }: {
 	user: User;
+	onRequestReset: () => void;
 	onRequestDelete: () => void;
 }) {
 	const mutation = useUpdateUserPermissions();
@@ -69,6 +71,17 @@ export function UserRow({
 					</div>
 				);
 			})}
+
+			<div className="flex justify-center">
+				<button
+					type="button"
+					aria-label={`Reset password for ${user.pseudo}`}
+					onClick={onRequestReset}
+					className="grid size-7 place-items-center rounded-md text-(--ink-muted) hover:text-(--brand)"
+				>
+					<IconRefresh className="size-3.5" />
+				</button>
+			</div>
 
 			<div className="flex justify-center">
 				<button

@@ -1,15 +1,18 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import type { CreateUserPayload, Permission, User } from "@/lib/api";
+import type { Permission, User } from "@/lib/api";
 import {
+	createInvite,
+	createPasswordReset,
 	deleteUser,
 	listUsers,
-	signup,
 	updateUserPermissions,
 } from "@/lib/api";
 
 export const adminKeys = {
 	all: ["admin"] as const,
 	users: () => [...adminKeys.all, "users"] as const,
+	passwordReset: (token: string) =>
+		[...adminKeys.all, "password-reset", token] as const,
 };
 
 export function useAdminUsers() {
@@ -19,14 +22,16 @@ export function useAdminUsers() {
 	});
 }
 
-export function useCreateUser() {
-	const queryClient = useQueryClient();
-
+export function useCreateInvite() {
 	return useMutation({
-		mutationFn: (payload: CreateUserPayload) => signup(payload),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: adminKeys.users() });
-		},
+		mutationFn: (permissions: readonly Permission[]) =>
+			createInvite(permissions),
+	});
+}
+
+export function useCreatePasswordReset() {
+	return useMutation({
+		mutationFn: (user: User) => createPasswordReset(user.id),
 	});
 }
 

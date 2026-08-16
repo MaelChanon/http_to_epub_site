@@ -1,6 +1,6 @@
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 import { authKeys } from "@/auth/auth.queries";
@@ -48,15 +48,7 @@ function LoginPage() {
 			title="Welcome back"
 			subtitle="Sign in to reach your library and favorites."
 			footer={
-				<>
-					Don't have an account?
-					<Link
-						to="/signup"
-						className="font-medium text-(--brand) hover:underline"
-					>
-						Sign up
-					</Link>
-				</>
+				<span>Need an account? Ask an administrator for an invite link.</span>
 			}
 		>
 			<form
@@ -81,12 +73,9 @@ function LoginPage() {
 						>
 							Password
 						</Label>
-						<button
-							type="button"
-							className="text-[11.5px] text-(--brand) hover:underline"
-						>
-							Forgot password?
-						</button>
+						<span className="text-[11.5px] text-(--ink-muted)">
+							Lost it? Ask an admin
+						</span>
 					</div>
 					<PasswordField
 						id="password"

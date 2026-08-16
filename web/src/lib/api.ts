@@ -3,14 +3,15 @@ import type {
 	AniListSearchResult,
 	ChapterPages,
 	CreateEpubPayload,
-	CreateUserPayload,
 	Epub,
 	LoginPayload,
+	MagicLink,
 	Manga,
 	MangaEpubs,
 	MangaProviderChapters,
 	MangaProviderName,
 	MangaSummary,
+	PasswordResetPreview,
 	Permission,
 	ProviderArchive,
 	ProviderMangaSummary,
@@ -23,14 +24,15 @@ export type {
 	AniListSearchResult,
 	ChapterPages,
 	CreateEpubPayload,
-	CreateUserPayload,
 	Epub,
 	EpubCoverContentType,
 	EpubCoverUpload,
+	MagicLink,
 	Manga,
 	MangaEpubs,
 	MangaProviderChapters,
 	MangaSummary,
+	PasswordResetPreview,
 	ProviderArchive,
 	ProviderMangaSummary,
 	User,
@@ -59,12 +61,6 @@ const client = Effect.runSync(
 export function login(payload: LoginPayload): Promise<User> {
 	return Effect.runPromise(
 		client.auth.login({ payload }).pipe(Effect.catchAll(toApiError)),
-	);
-}
-
-export function signup(payload: CreateUserPayload): Promise<User> {
-	return Effect.runPromise(
-		client.users.createUser({ payload }).pipe(Effect.catchAll(toApiError)),
 	);
 }
 
@@ -100,6 +96,51 @@ export function updateUserPermissions(
 export function deleteUser(id: User["id"]): Promise<void> {
 	return Effect.runPromise(
 		client.users.deleteUser({ path: { id } }).pipe(Effect.catchAll(toApiError)),
+	);
+}
+
+export function acceptInvite(
+	token: string,
+	values: { pseudo: string; email: string; password: string },
+): Promise<User> {
+	return Effect.runPromise(
+		client.users
+			.createUser({ payload: { ...values, token } })
+			.pipe(Effect.catchAll(toApiError)),
+	);
+}
+
+export function createInvite(
+	permissions: readonly Permission[],
+): Promise<MagicLink> {
+	return Effect.runPromise(
+		client.users
+			.createInvite({ payload: { permissions } })
+			.pipe(Effect.catchAll(toApiError)),
+	);
+}
+
+export function createPasswordReset(id: User["id"]): Promise<MagicLink> {
+	return Effect.runPromise(
+		client.users
+			.createPasswordReset({ path: { id } })
+			.pipe(Effect.catchAll(toApiError)),
+	);
+}
+
+export function getPasswordReset(token: string): Promise<PasswordResetPreview> {
+	return Effect.runPromise(
+		client.auth
+			.getPasswordReset({ path: { token } })
+			.pipe(Effect.catchAll(toApiError)),
+	);
+}
+
+export function resetPassword(token: string, password: string): Promise<void> {
+	return Effect.runPromise(
+		client.auth
+			.resetPassword({ path: { token }, payload: { password } })
+			.pipe(Effect.catchAll(toApiError)),
 	);
 }
 

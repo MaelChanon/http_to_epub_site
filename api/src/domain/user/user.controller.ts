@@ -1,19 +1,17 @@
-import { HttpApiBuilder, HttpServerRequest } from "@effect/platform";
+import { HttpApiBuilder } from "@effect/platform";
 import { Effect, Option } from "effect";
 import { CurrentUser, sessionCookie } from "../../auth/auth.middleware.js";
-import { AuthService } from "../../auth/auth.service.js";
 import { appConfig } from "../../config.js";
-import { EncryptService } from "../../encrypt/encryptService.js";
 import { Api } from "../../http/api.js";
 import {
 	BadRequestError,
 	ForbiddenError,
 	toHttpError,
-	UnauthorizedError,
 } from "../../http/error.js";
 import { SessionService } from "../../session/session.service.js";
+import { MagicLinkService } from "./magicLink.service.js";
 import { requireAdmin } from "./permission.js";
-import { User } from "./user.schema.js";
+import { MagicLink } from "./user.schema.js";
 import { UserService } from "./user.service.js";
 
 export const UsersApiGroupLive = HttpApiBuilder.group(
@@ -23,7 +21,7 @@ export const UsersApiGroupLive = HttpApiBuilder.group(
 		Effect.gen(function* () {
 			const userService = yield* UserService;
 			const sessionService = yield* SessionService;
-			const authService = yield* AuthService;
+			const magicLinkService = yield* MagicLinkService;
 			const config = yield* appConfig;
 			return handlers
 				.handle("createUser", ({ payload }) =>
@@ -32,28 +30,21 @@ export const UsersApiGroupLive = HttpApiBuilder.group(
 							.countUsers()
 							.pipe(Effect.catchAll(toHttpError));
 
-						if (total > 0) {
-							const request = yield* HttpServerRequest.HttpServerRequest;
-							const token = request.cookies.session;
-							const requester = yield* authService
-								.authenticate(token ?? "")
-								.pipe(
-									Effect.catchAll(() =>
-										Effect.fail(
-											new UnauthorizedError({
-												message: "Authentication required",
-											}),
-										),
-									),
-								);
-							if (!requester.isAdmin) {
-								return yield* Effect.fail(
-									new ForbiddenError({
-										message: "Only an administrator can create users",
-									}),
-								);
-							}
+						if (payload.token === undefined && total > 0) {
+							return yield* Effect.fail(
+								new ForbiddenError({
+									message:
+										"Registration is closed — ask an administrator for an invite link",
+								}),
+							);
 						}
+
+						const permissions =
+							payload.token === undefined
+								? []
+								: yield* magicLinkService
+										.peekInvite(payload.token)
+										.pipe(Effect.catchAll(toHttpError));
 
 						const existing = yield* Effect.option(
 							userService.getUserByEmail(payload.email),
@@ -63,21 +54,32 @@ export const UsersApiGroupLive = HttpApiBuilder.group(
 								new BadRequestError({ message: "User already exists" }),
 							);
 						}
+
+						if (payload.token !== undefined) {
+							yield* magicLinkService
+								.consumeInvite(payload.token)
+								.pipe(Effect.catchAll(toHttpError));
+						}
+
 						const user = yield* userService
-							.createUser(payload)
+							.createUser({
+								pseudo: payload.pseudo,
+								email: payload.email,
+								password: payload.password,
+								permissions,
+								isAdmin: total === 0,
+							})
 							.pipe(Effect.catchAll(toHttpError));
 
-						if (total === 0) {
-							const token = yield* sessionService
-								.createToken(user.id)
-								.pipe(Effect.catchAll(toHttpError));
-							yield* HttpApiBuilder.securitySetCookie(sessionCookie, token, {
-								path: "/",
-								sameSite: "lax",
-								secure: config.cookieSecure,
-								maxAge: sessionService.ttl,
-							});
-						}
+						const token = yield* sessionService
+							.createToken(user.id)
+							.pipe(Effect.catchAll(toHttpError));
+						yield* HttpApiBuilder.securitySetCookie(sessionCookie, token, {
+							path: "/",
+							sameSite: "lax",
+							secure: config.cookieSecure,
+							maxAge: sessionService.ttl,
+						});
 
 						return user;
 					}),
@@ -89,6 +91,36 @@ export const UsersApiGroupLive = HttpApiBuilder.group(
 						return yield* userService
 							.listUsers()
 							.pipe(Effect.catchAll(toHttpError));
+					}),
+				)
+				.handle("createInvite", ({ payload }) =>
+					Effect.gen(function* () {
+						const user = yield* CurrentUser;
+						yield* requireAdmin(user);
+						const link = yield* magicLinkService
+							.createInvite(payload.permissions)
+							.pipe(Effect.catchAll(toHttpError));
+						return new MagicLink(link);
+					}),
+				)
+				.handle("createPasswordReset", ({ path }) =>
+					Effect.gen(function* () {
+						const user = yield* CurrentUser;
+						yield* requireAdmin(user);
+						const target = yield* userService
+							.getUserById(path.id)
+							.pipe(Effect.catchAll(toHttpError));
+						if (target.isAdmin) {
+							return yield* Effect.fail(
+								new BadRequestError({
+									message: "Cannot reset an administrator's password",
+								}),
+							);
+						}
+						const link = yield* magicLinkService
+							.createReset(target.id)
+							.pipe(Effect.catchAll(toHttpError));
+						return new MagicLink(link);
 					}),
 				)
 				.handle("updateUserPermissions", ({ path, payload }) =>
@@ -130,66 +162,4 @@ export const UsersApiGroupLive = HttpApiBuilder.group(
 					}),
 				);
 		}),
-);
-
-export const AuthApiGroupLive = HttpApiBuilder.group(Api, "auth", (handlers) =>
-	Effect.gen(function* () {
-		const userService = yield* UserService;
-		const encryptService = yield* EncryptService;
-		const sessionService = yield* SessionService;
-		const config = yield* appConfig;
-		return handlers
-			.handle("login", ({ payload }) =>
-				Effect.gen(function* () {
-					const user = yield* userService
-						.getUserByEmailWithPassword(payload.email)
-						.pipe(Effect.catchAll(toHttpError));
-
-					const isValid = yield* encryptService
-						.verify(payload.password, user.password)
-						.pipe(Effect.catchAll(toHttpError));
-
-					if (!isValid) {
-						return yield* Effect.fail(
-							new UnauthorizedError({ message: "Invalid credentials" }),
-						);
-					}
-
-					const token = yield* sessionService
-						.createToken(user.id)
-						.pipe(Effect.catchAll(toHttpError));
-					yield* HttpApiBuilder.securitySetCookie(sessionCookie, token, {
-						path: "/",
-						sameSite: "lax",
-						secure: config.cookieSecure,
-						maxAge: sessionService.ttl,
-					});
-					return new User({
-						id: user.id,
-						pseudo: user.pseudo,
-						email: user.email,
-						isAdmin: user.isAdmin,
-						permissions: user.permissions,
-					});
-				}),
-			)
-			.handle("logout", () =>
-				Effect.gen(function* () {
-					const request = yield* HttpServerRequest.HttpServerRequest;
-					const token = request.cookies.session;
-					if (token) {
-						yield* sessionService
-							.revokeToken(token)
-							.pipe(Effect.catchAll(toHttpError));
-					}
-					yield* HttpApiBuilder.securitySetCookie(sessionCookie, "", {
-						path: "/",
-						sameSite: "lax",
-						secure: config.cookieSecure,
-						maxAge: 0,
-					});
-				}),
-			)
-			.handle("me", () => CurrentUser);
-	}),
 );
