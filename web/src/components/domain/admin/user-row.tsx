@@ -29,7 +29,7 @@ export function UserRow({
 
 	return (
 		<div
-			className={`grid ${GRID_COLS} items-center gap-2 border-b border-(--line) py-3`}
+			className={`grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-3 border-b border-(--line) py-3 ${GRID_COLS} md:gap-2`}
 		>
 			<div className="flex min-w-0 items-center gap-3">
 				<div
@@ -48,50 +48,57 @@ export function UserRow({
 				</div>
 			</div>
 
-			{PermissionSchema.literals.map((perm) => {
-				const active = user.permissions.includes(perm);
-				const pending =
-					mutation.isPending && mutation.variables?.user.id === user.id;
-				return (
-					<div key={perm} className="flex justify-center">
-						<button
-							type="button"
-							aria-pressed={active}
-							aria-label={`${active ? "Revoke" : "Grant"} ${permissionLabels[perm]} for ${user.pseudo}`}
-							disabled={pending}
-							onClick={() => toggle(perm)}
-							className={`grid size-7 place-items-center rounded-md border transition-colors disabled:opacity-50 ${
-								active
-									? "border-(--brand) bg-(--brand-soft) text-(--brand)"
-									: "border-(--line) text-transparent hover:border-(--line-strong) hover:text-(--ink-muted)"
-							}`}
-						>
-							<IconCheck className="size-3.5" />
-						</button>
-					</div>
-				);
-			})}
-
-			<div className="flex justify-center">
-				<button
-					type="button"
-					aria-label={`Reset password for ${user.pseudo}`}
-					onClick={onRequestReset}
-					className="grid size-7 place-items-center rounded-md text-(--ink-muted) hover:text-(--brand)"
-				>
-					<IconRefresh className="size-3.5" />
-				</button>
+			<div className="col-span-2 order-3 flex flex-wrap gap-1.5 md:contents">
+				{PermissionSchema.literals.map((perm) => {
+					const active = user.permissions.includes(perm);
+					return (
+						<div key={perm} className="md:flex md:justify-center">
+							<button
+								type="button"
+								aria-pressed={active}
+								aria-label={`${active ? "Revoke" : "Grant"} ${permissionLabels[perm]} for ${user.pseudo}`}
+								onClick={() => toggle(perm)}
+								className={`group flex h-7 items-center gap-1.5 rounded-md border px-2.5 text-[12px] transition-colors md:grid md:size-7 md:place-items-center md:gap-0 md:px-0 ${
+									active
+										? "border-(--brand) bg-(--brand-soft) text-(--brand)"
+										: "border-(--line) text-(--ink-soft) hover:border-(--line-strong)"
+								}`}
+							>
+								<IconCheck
+									className={`size-3.5 shrink-0 transition-colors ${
+										active
+											? ""
+											: "text-transparent group-hover:text-(--ink-muted)"
+									}`}
+								/>
+								<span className="md:hidden">{permissionLabels[perm]}</span>
+							</button>
+						</div>
+					);
+				})}
 			</div>
 
-			<div className="flex justify-center">
-				<button
-					type="button"
-					aria-label={`Delete ${user.pseudo}`}
-					onClick={onRequestDelete}
-					className="grid size-7 place-items-center rounded-md text-(--ink-muted) hover:text-destructive"
-				>
-					<IconClose className="size-3.5" />
-				</button>
+			<div className="order-2 flex items-center justify-end gap-1 md:contents">
+				<div className="md:flex md:justify-center">
+					<button
+						type="button"
+						aria-label={`Reset password for ${user.pseudo}`}
+						onClick={onRequestReset}
+						className="grid size-8 place-items-center rounded-md text-(--ink-muted) transition-colors hover:text-(--brand) md:size-7"
+					>
+						<IconRefresh className="size-3.5" />
+					</button>
+				</div>
+				<div className="md:flex md:justify-center">
+					<button
+						type="button"
+						aria-label={`Delete ${user.pseudo}`}
+						onClick={onRequestDelete}
+						className="grid size-8 place-items-center rounded-md text-(--ink-muted) transition-colors hover:text-destructive md:size-7"
+					>
+						<IconClose className="size-3.5" />
+					</button>
+				</div>
 			</div>
 		</div>
 	);

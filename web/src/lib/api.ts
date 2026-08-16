@@ -35,7 +35,6 @@ export type {
 	PasswordResetPreview,
 	ProviderArchive,
 	ProviderMangaSummary,
-	User,
 } from "@workspace/api";
 export {
 	AniListId,
@@ -45,6 +44,7 @@ export {
 	MangaProviderStatus,
 	Permission,
 	ScanEvent,
+	User,
 } from "@workspace/api";
 
 export class ApiError extends Error {}

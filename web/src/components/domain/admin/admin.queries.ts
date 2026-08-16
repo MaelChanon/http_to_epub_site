@@ -5,6 +5,7 @@ import {
 	createPasswordReset,
 	deleteUser,
 	listUsers,
+	User as UserSchema,
 	updateUserPermissions,
 } from "@/lib/api";
 
@@ -38,6 +39,12 @@ export function useCreatePasswordReset() {
 export function useUpdateUserPermissions() {
 	const queryClient = useQueryClient();
 
+	function patchUser(id: User["id"], patch: (user: User) => User) {
+		queryClient.setQueryData<readonly User[]>(adminKeys.users(), (current) =>
+			current?.map((entry) => (entry.id === id ? patch(entry) : entry)),
+		);
+	}
+
 	return useMutation({
 		mutationFn: ({
 			user,
@@ -46,8 +53,21 @@ export function useUpdateUserPermissions() {
 			user: User;
 			permissions: readonly Permission[];
 		}) => updateUserPermissions(user.id, permissions),
-		onSuccess: () => {
-			queryClient.invalidateQueries({ queryKey: adminKeys.users() });
+		onMutate: async ({ user, permissions }) => {
+			await queryClient.cancelQueries({ queryKey: adminKeys.users() });
+			const previous = queryClient.getQueryData<readonly User[]>(
+				adminKeys.users(),
+			);
+			patchUser(user.id, (entry) => new UserSchema({ ...entry, permissions }));
+			return { previous };
+		},
+		onError: (_error, _variables, context) => {
+			if (context?.previous) {
+				queryClient.setQueryData(adminKeys.users(), context.previous);
+			}
+		},
+		onSuccess: (updated) => {
+			patchUser(updated.id, () => updated);
 		},
 	});
 }

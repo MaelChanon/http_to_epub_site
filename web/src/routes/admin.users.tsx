@@ -44,7 +44,7 @@ function AdminUsersPage() {
 			<Header />
 
 			<main className="mx-auto max-w-[880px] px-4 py-10 sm:px-8">
-				<div className="flex items-end justify-between gap-4 border-b border-(--line) pb-5">
+				<div className="flex flex-col items-start gap-4 border-b border-(--line) pb-5 sm:flex-row sm:items-end sm:justify-between">
 					<div>
 						<div className="font-mono text-[10.5px] tracking-[0.08em] text-(--brand) uppercase">
 							[admin]
@@ -81,7 +81,7 @@ function AdminUsersPage() {
 				{!isPending && users && users.length > 0 && (
 					<div className="mt-6">
 						<div
-							className={`grid ${GRID_COLS} items-center gap-2 border-b border-(--line) pb-2 font-mono text-[10px] tracking-[0.08em] text-(--ink-muted) uppercase`}
+							className={`hidden ${GRID_COLS} items-center gap-2 border-b border-(--line) pb-2 font-mono text-[10px] tracking-[0.08em] text-(--ink-muted) uppercase md:grid`}
 						>
 							<span>[users]</span>
 							{Permission.literals.map((perm) => (
