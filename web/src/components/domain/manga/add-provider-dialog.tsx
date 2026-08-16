@@ -79,7 +79,6 @@ export function AddProviderDialog({
 		syncMutation.mutate({
 			provider,
 			slug: result.tag,
-			label: `${formatEnumLabel(provider)} · ${result.name}`,
 		});
 		onOpenChange(false);
 	}

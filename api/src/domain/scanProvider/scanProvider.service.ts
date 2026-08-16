@@ -219,45 +219,52 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 						new ScanEvent({ provider, status: startStatus }),
 					);
 
-					yield* Effect.gen(function* () {
-						const rawChapters = yield* mangaFetcher.getMangaChapters(
-							slug,
-							provider,
-						);
-						yield* Effect.forEach(
-							rawChapters,
-							(chapter) =>
-								processChapter(mangaDbId, providerId, {
-									...chapter,
-									chapterNumber: chapter.chapterNumber + 1,
-								}),
-							{ concurrency: 3 },
-						);
-
-						yield* buildProviderArchive(mangaDbId, provider).pipe(
-							Effect.asVoid,
-						);
-					}).pipe(
-						Effect.onExit((exit) => {
-							const finalStatus: MangaProviderStatus = Exit.isSuccess(exit)
-								? "UPDATED"
-								: "FAILED";
-							return Effect.andThen(
-								providerRepo.setStatus(mangaDbId, providerId, finalStatus),
-								scanEvents.publish(
-									mangaDbId,
-									new ScanEvent({ provider, status: finalStatus }),
-								),
-							).pipe(
-								Effect.catchAllCause((cause) =>
-									Effect.logError(
-										`failed to resolve manga_providers status to ${finalStatus} for manga=${mangaDbId} provider=${provider}: ${cause}`,
-									),
-								),
+					yield* Effect.forkDaemon(
+						Effect.gen(function* () {
+							const rawChapters = yield* mangaFetcher.getMangaChapters(
+								slug,
+								provider,
 							);
-						}),
+							yield* Effect.forEach(
+								rawChapters,
+								(chapter) =>
+									processChapter(mangaDbId, providerId, {
+										...chapter,
+										chapterNumber: chapter.chapterNumber + 1,
+									}),
+								{ concurrency: 3 },
+							);
+
+							yield* buildProviderArchive(mangaDbId, provider).pipe(
+								Effect.asVoid,
+							);
+						}).pipe(
+							Effect.onExit((exit) => {
+								const finalStatus: MangaProviderStatus = Exit.isSuccess(exit)
+									? "UPDATED"
+									: "FAILED";
+								return Effect.andThen(
+									providerRepo.setStatus(mangaDbId, providerId, finalStatus),
+									scanEvents.publish(
+										mangaDbId,
+										new ScanEvent({ provider, status: finalStatus }),
+									),
+								).pipe(
+									Effect.catchAllCause((cause) =>
+										Effect.logError(
+											`failed to resolve manga_providers status to ${finalStatus} for manga=${mangaDbId} provider=${provider}: ${cause}`,
+										),
+									),
+								);
+							}),
+							Effect.catchAllCause((cause) =>
+								Effect.logError(
+									`chapter sync failed for manga=${mangaDbId} provider=${provider}: ${cause}`,
+								),
+							),
+						),
 					);
-				});
+				}).pipe(Effect.asVoid);
 			}
 
 			function resolveProviderId(

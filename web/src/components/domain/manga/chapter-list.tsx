@@ -224,7 +224,6 @@ export function ChapterList({ manga, range }: ChapterListProps) {
 									syncMutation.mutate({
 										provider: activeProviderEntry.provider,
 										slug: activeProviderEntry.tag,
-										label: `${formatEnumLabel(activeProviderEntry.provider)} · refresh`,
 									});
 								}}
 								className="ml-1 grid size-6 shrink-0 place-items-center rounded-md text-(--ink-muted) hover:text-(--ink) disabled:opacity-50"
@@ -238,10 +237,7 @@ export function ChapterList({ manga, range }: ChapterListProps) {
 								aria-label={`Download ${formatEnumLabel(activeProviderEntry.provider)} archive`}
 								disabled={isProviderTransitioning(activeProviderEntry.status)}
 								onClick={() => {
-									archiveMutation.mutate({
-										provider: activeProviderEntry.provider,
-										label: `${formatEnumLabel(activeProviderEntry.provider)} · archive`,
-									});
+									archiveMutation.mutate(activeProviderEntry.provider);
 								}}
 								className="grid size-6 shrink-0 place-items-center rounded-md text-(--ink-muted) hover:text-(--ink) disabled:opacity-50"
 							>

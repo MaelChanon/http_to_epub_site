@@ -20,7 +20,6 @@ import {
 	searchProviderCatalog,
 	syncMangaChapters,
 } from "@/lib/api";
-import { runTrackedTask } from "@/lib/task-queue";
 
 export const scanProviderKeys = {
 	all: ["scanProvider"] as const,
@@ -74,12 +73,10 @@ export function useSyncMangaChapters(mangaId: AniListId) {
 		mutationFn: ({
 			provider,
 			slug,
-			label,
 		}: {
 			provider: MangaProviderName;
 			slug: string;
-			label: string;
-		}) => runTrackedTask(label, syncMangaChapters(mangaId, { slug, provider })),
+		}) => syncMangaChapters(mangaId, { slug, provider }),
 		onSuccess: () => {
 			queryClient.invalidateQueries({
 				queryKey: scanProviderKeys.mangaProviders(mangaId),
@@ -139,13 +136,8 @@ export function useMangaProviderEvents(mangaId: AniListId) {
 
 export function useDownloadProviderArchive(mangaId: AniListId) {
 	return useMutation({
-		mutationFn: ({
-			provider,
-			label,
-		}: {
-			provider: MangaProviderName;
-			label: string;
-		}) => runTrackedTask(label, buildProviderArchive(mangaId, provider)),
+		mutationFn: (provider: MangaProviderName) =>
+			buildProviderArchive(mangaId, provider),
 		onSuccess: ({ url }) => {
 			const link = document.createElement("a");
 			link.href = url;
