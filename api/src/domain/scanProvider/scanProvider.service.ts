@@ -1,5 +1,5 @@
 import { and, eq, sql } from "drizzle-orm";
-import { Data, Effect, Exit, Option, Ref } from "effect";
+import { Cause, Data, Effect, Exit, Option, Ref } from "effect";
 import { DB, DBLayer } from "../../../drizzle/db.js";
 import { chapters, pages } from "../../../drizzle/schema/providers.js";
 import { SQLError, toSQLError } from "../../../drizzle/schema/utils.js";
@@ -571,31 +571,46 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 						})
 						.pipe(Effect.mapError(toSQLError));
 
-					const pageEntries = rows.flatMap((chapter) =>
-						chapter.pages
-							.slice()
-							.sort((a, b) => a.number - b.number)
-							.map((page) => {
-								const ext = page.path.split(".").pop() || "jpg";
-								const folder = `Chapter ${String(chapter.number).padStart(3, "0")}`;
-								const fileName = `${String(page.number).padStart(3, "0")}.${ext}`;
-								return { path: page.path, entryName: `${folder}/${fileName}` };
-							}),
-					);
-
-					const entries = yield* Effect.forEach(
-						pageEntries,
-						({ path, entryName }) =>
-							s3.manga
-								.download(path)
-								.pipe(Effect.map((data) => ({ entryName, data }))),
-						{ concurrency: 5 },
-					);
-
-					const zip = yield* archive.buildZip(entries);
-
 					const key = yield* getProviderArchive(mangaDbId, provider);
-					yield* s3.manga.upload(key, zip, "application/zip");
+					const zip = archive.createZipStream();
+
+					const feed = Effect.gen(function* () {
+						for (const chapter of rows) {
+							const folder = `Chapter ${String(chapter.number).padStart(3, "0")}`;
+
+							const downloaded = yield* Effect.forEach(
+								chapter.pages.slice().sort((a, b) => a.number - b.number),
+								(page) =>
+									s3.manga
+										.download(page.path)
+										.pipe(Effect.map((data) => ({ page, data }))),
+								{ concurrency: 5 },
+							);
+
+							for (const { page, data } of downloaded) {
+								const ext = page.path.split(".").pop() || "jpg";
+								const fileName = `${String(page.number).padStart(3, "0")}.${ext}`;
+								yield* zip.addEntry(`${folder}/${fileName}`, data);
+							}
+						}
+
+						yield* zip.end();
+					}).pipe(
+						Effect.onError((cause) =>
+							Effect.sync(() => zip.abort(new Error(Cause.pretty(cause)))),
+						),
+					);
+
+					const push = s3.manga
+						.uploadStream(key, zip.readable, "application/zip")
+						.pipe(
+							Effect.onError((cause) =>
+								Effect.sync(() => zip.abort(new Error(Cause.pretty(cause)))),
+							),
+						);
+
+					yield* Effect.all([feed, push], { concurrency: 2 });
+
 					const url = yield* s3.manga.getUrl(key);
 
 					return new ProviderArchive({ url });

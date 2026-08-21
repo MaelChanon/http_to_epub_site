@@ -1,3 +1,4 @@
+import type { Readable } from "node:stream";
 import type { S3Client as S3ClientSdk } from "@aws-sdk/client-s3";
 import {
 	DeleteObjectsCommand,
@@ -6,6 +7,7 @@ import {
 	NoSuchKey,
 	PutObjectCommand,
 } from "@aws-sdk/client-s3";
+import { Upload } from "@aws-sdk/lib-storage";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import type { HttpClient } from "@effect/platform";
 import { HttpClientResponse } from "@effect/platform";
@@ -65,6 +67,24 @@ export function makeS3Operations(
 					}),
 				),
 			catch: toS3Error("upload", key),
+		}).pipe(Effect.asVoid);
+	}
+
+	function uploadStream(key: string, body: Readable, contentType?: string) {
+		return Effect.tryPromise({
+			try: () =>
+				new Upload({
+					client,
+					params: {
+						Bucket: bucket,
+						Key: key,
+						Body: body,
+						ContentType: contentType,
+					},
+					partSize: 8 * 1024 * 1024,
+					queueSize: 4,
+				}).done(),
+			catch: toS3Error("uploadStream", key),
 		}).pipe(Effect.asVoid);
 	}
 
@@ -214,6 +234,7 @@ export function makeS3Operations(
 
 	return {
 		upload,
+		uploadStream,
 		download,
 		list,
 		getUrl,
