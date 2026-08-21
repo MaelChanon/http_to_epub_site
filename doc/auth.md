@@ -152,6 +152,27 @@ administrator can neither be deleted, nor have their permissions edited, nor
 be handed a reset link (400 in each case): admins are managed at the database
 level or by bootstrapping a fresh instance.
 
+## CSRF protection
+
+Two layers, both cookie-level rather than token-level — there is no
+synchroniser token and no `X-CSRF-Token` header anywhere.
+
+- The session cookie is `sameSite: "lax"`, so the browser does not attach it
+  to cross-site `POST`/`PUT`/`PATCH`/`DELETE` requests at all.
+- `http/csrfProtection.ts` is an `HttpMiddleware` wired in `index.ts` around
+  the whole app (inside the CORS middleware). On mutating methods it reads
+  the request's `Origin`, falling back to the origin parsed out of `Referer`,
+  and answers `403` when that origin is not in `CORS_ALLOWED_ORIGINS`. Safe
+  methods pass through untouched.
+
+**Known reservation** (audit S3): the check is `origin !== undefined &&
+!allowedOrigins.includes(origin)`, so a mutating request carrying **neither**
+`Origin` nor `Referer` traverses the middleware. Exploitability is low —
+modern browsers send `Origin` on every cross-site mutating request, and
+`sameSite: "lax"` would not attach the session anyway — but the middleware
+reads as a stronger guarantee than it gives. Rejecting an absent origin on a
+mutating method is the fix.
+
 ## Password hashing & storage
 
 - `encrypt/encryptService.ts`: `bcryptjs`, `SALT_ROUNDS = 12`.
@@ -172,8 +193,8 @@ level or by bootstrapping a fresh instance.
   every request. There is no manual token/`Authorization` header handling.
 - `getCurrentUser()` swallows failures and resolves `null` instead of
   throwing, which lets route guards do a simple truthy check.
-- **Route protection** is a per-route `beforeLoad` guard, e.g.
-  `web/src/routes/manga.$mangaId.tsx`:
+- **Route protection** lives in a single pathless layout route,
+  `web/src/routes/_authenticated.tsx`:
 
   ```ts
   beforeLoad: async ({ context }) => {
@@ -182,11 +203,18 @@ level or by bootstrapping a fresh instance.
       queryFn: getCurrentUser,
     });
     if (!user) throw redirect({ to: "/login" });
+    return { user };
   },
   ```
 
-  There is no shared/root-level guard (no pathless `_authenticated` layout
-  route yet) — each protected route repeats this block.
+  Every protected page is a child file (`_authenticated.index.tsx`,
+  `_authenticated.library.tsx`, `_authenticated.manga.$mangaId.tsx`,
+  `_authenticated.manga.$mangaId_.$providerId.$chapterId.tsx`,
+  `_authenticated.admin.users.tsx`) — the segment is pathless, so the URLs are
+  unchanged. The guard returns the user into the router context, which
+  `_authenticated.admin.users.tsx` reuses for its own `beforeLoad`
+  (`if (!context.user.isAdmin) throw redirect({ to: "/" })`). Public routes
+  (`login`, `invite/$token`, `reset-password/$token`) stay outside the layout.
 - **Account pages.** There is no signup page: the first administrator uses
   the startup invite link like anybody else, so `/invite/$token` is the only
   account-creation route. It renders the form straight away — there is no preview
@@ -225,7 +253,8 @@ queried anonymously server-side, no OAuth client is involved.
 
 - No logout button/menu wired up in the UI, even though `logout()` is
   exported and functional.
-- No CSRF protection beyond the cookie's `sameSite: "lax"`.
+- The CSRF middleware lets a mutating request through when it carries
+  neither `Origin` nor `Referer` (see [CSRF protection](#csrf-protection)).
 - No self-service password change for a signed-in user — only an
   administrator-issued reset link.
 - No self-service "forgot password": with no mail infrastructure there is

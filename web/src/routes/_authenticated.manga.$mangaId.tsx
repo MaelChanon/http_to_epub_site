@@ -1,5 +1,4 @@
-import { createFileRoute, Link, redirect } from "@tanstack/react-router";
-import { authKeys, getCurrentUser } from "@/auth/auth.queries";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { useManga } from "@/components/domain/manga/manga.queries";
 import { displayTitle } from "@/components/domain/manga/manga.util";
@@ -8,17 +7,7 @@ import { Header } from "@/components/header";
 import { IconArrowLeft } from "@/components/icons";
 import { AniListId, ApiError } from "@/lib/api";
 
-export const Route = createFileRoute("/manga/$mangaId")({
-	beforeLoad: async ({ context }) => {
-		const user = await context.queryClient.ensureQueryData({
-			queryKey: authKeys.currentUser(),
-			queryFn: getCurrentUser,
-		});
-
-		if (!user) {
-			throw redirect({ to: "/login" });
-		}
-	},
+export const Route = createFileRoute("/_authenticated/manga/$mangaId")({
 	component: MangaPage,
 });
 

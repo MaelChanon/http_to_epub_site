@@ -1,20 +1,9 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
-import { authKeys, getCurrentUser } from "@/auth/auth.queries";
+import { createFileRoute } from "@tanstack/react-router";
 import { Breadcrumbs } from "@/components/breadcrumbs";
 import { LibraryPage } from "@/components/domain/library/library-page";
 import { Header } from "@/components/header";
 
-export const Route = createFileRoute("/library")({
-	beforeLoad: async ({ context }) => {
-		const user = await context.queryClient.ensureQueryData({
-			queryKey: authKeys.currentUser(),
-			queryFn: getCurrentUser,
-		});
-
-		if (!user) {
-			throw redirect({ to: "/login" });
-		}
-	},
+export const Route = createFileRoute("/_authenticated/library")({
 	component: LibraryRoute,
 });
 

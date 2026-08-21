@@ -1,27 +1,16 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { Schema } from "effect";
-import { authKeys, getCurrentUser } from "@/auth/auth.queries";
 import { ChapterReader } from "@/components/domain/manga/chapter-reader";
 import { useManga } from "@/components/domain/manga/manga.queries";
 import { AniListId, MangaProviderName } from "@/lib/api";
 
 const isMangaProviderName = Schema.is(MangaProviderName);
 
-export const Route = createFileRoute("/manga/$mangaId_/$providerId/$chapterId")(
-	{
-		beforeLoad: async ({ context }) => {
-			const user = await context.queryClient.ensureQueryData({
-				queryKey: authKeys.currentUser(),
-				queryFn: getCurrentUser,
-			});
-
-			if (!user) {
-				throw redirect({ to: "/login" });
-			}
-		},
-		component: ChapterPage,
-	},
-);
+export const Route = createFileRoute(
+	"/_authenticated/manga/$mangaId_/$providerId/$chapterId",
+)({
+	component: ChapterPage,
+});
 
 function ChapterPage() {
 	const { mangaId: rawMangaId, providerId, chapterId } = Route.useParams();

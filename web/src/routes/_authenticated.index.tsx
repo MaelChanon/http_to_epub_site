@@ -1,6 +1,5 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute } from "@tanstack/react-router";
 import { Schema } from "effect";
-import { authKeys, getCurrentUser } from "@/auth/auth.queries";
 import { BrowseSection } from "@/components/domain/home/browse-section";
 import { FavoritesOnlyPage } from "@/components/domain/home/favorites-only-page";
 import { FavoritesSection } from "@/components/domain/home/favorites-section";
@@ -11,18 +10,8 @@ const homeSearchSchema = Schema.standardSchemaV1(
 	Schema.Struct({ favorites: Schema.optional(Schema.Boolean) }),
 );
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/_authenticated/")({
 	validateSearch: homeSearchSchema,
-	beforeLoad: async ({ context }) => {
-		const user = await context.queryClient.ensureQueryData({
-			queryKey: authKeys.currentUser(),
-			queryFn: getCurrentUser,
-		});
-
-		if (!user) {
-			throw redirect({ to: "/login" });
-		}
-	},
 	component: IndexPage,
 });
 

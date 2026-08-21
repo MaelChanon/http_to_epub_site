@@ -123,7 +123,9 @@ verified by an `HttpApiMiddleware` (`auth/auth.middleware.ts` declarative +
 `auth.middleware.live.ts` implementation) that endpoints opt into with
 `.middleware(Authentication)`. No global frontend auth store — auth state is
 read on demand via React Query (`authKeys.currentUser()`), and route
-protection is a per-route `beforeLoad` guard (no shared layout route yet).
+protection is a single `beforeLoad` guard on the pathless `_authenticated`
+layout route (`web/src/routes/_authenticated.tsx`), which every protected page
+sits under and which returns the user into the router context.
 There is **no open registration**: `PUT /api/user` only works while the users
 table is empty (bootstrap admin) or with a single-use invite token; the first
 account created on an instance is always the administrator. On boot, an empty
@@ -132,7 +134,7 @@ users table makes the API print a ready-to-use invite link to the log
 admin-issued magic link that revokes every session of the target user. Magic links live in Redis
 (`domain/user/magicLink.service.ts`, `GETDEL`-based single use) and are copied
 by hand — there is no mail infrastructure. Full flow, endpoint table and known
-gaps (no logout UI, no CSRF beyond `sameSite: lax`, no self-service password
+gaps (no logout UI, CSRF middleware blind to a missing `Origin`, no self-service password
 change, invitations cannot be revoked): `doc/auth.md`.
 
 ### manga-fetcher native addon

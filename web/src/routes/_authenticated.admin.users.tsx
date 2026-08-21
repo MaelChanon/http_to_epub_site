@@ -1,6 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
 import { useState } from "react";
-import { authKeys, getCurrentUser } from "@/auth/auth.queries";
 import { useAdminUsers } from "@/components/domain/admin/admin.queries";
 import {
 	GRID_COLS,
@@ -16,17 +15,9 @@ import { Button } from "@/components/ui/button";
 import type { User } from "@/lib/api";
 import { Permission } from "@/lib/api";
 
-export const Route = createFileRoute("/admin/users")({
-	beforeLoad: async ({ context }) => {
-		const user = await context.queryClient.ensureQueryData({
-			queryKey: authKeys.currentUser(),
-			queryFn: getCurrentUser,
-		});
-
-		if (!user) {
-			throw redirect({ to: "/login" });
-		}
-		if (!user.isAdmin) {
+export const Route = createFileRoute("/_authenticated/admin/users")({
+	beforeLoad: ({ context }) => {
+		if (!context.user.isAdmin) {
 			throw redirect({ to: "/" });
 		}
 	},
