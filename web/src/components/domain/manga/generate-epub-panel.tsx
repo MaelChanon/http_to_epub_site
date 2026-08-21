@@ -1,16 +1,16 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { effectTsResolver } from "@hookform/resolvers/effect-ts";
 import type { UploadEpubCoverPayload } from "@workspace/api";
 import { EpubCoverContentType } from "@workspace/api";
 import { Schema } from "effect";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
 import { IconBolt } from "@/components/icons";
 import { CheckboxField } from "@/components/ui/checkbox-field";
 import { NumberField } from "@/components/ui/number-field";
 import { QuickButton } from "@/components/ui/quick-button";
 import { TextField } from "@/components/ui/text-field";
 import type { Manga, MangaProviderName } from "@/lib/api";
+import { requiredString } from "@/lib/form-schema";
 import { useGenerateEpub } from "./epub.queries";
 import type { ChapterRange } from "./manga.util";
 import { coverHue, displayTitle, formatEnumLabel } from "./manga.util";
@@ -60,13 +60,13 @@ const DIM_PRESETS = [
 	{ id: "custom", name: "Custom", w: null, h: null },
 ];
 
-const generateFormSchema = z.object({
-	creator: z.string(),
-	filename: z.string().min(1, "Required"),
-	splitDoublePage: z.boolean(),
+const generateFormSchema = Schema.Struct({
+	creator: Schema.String,
+	filename: requiredString("Required"),
+	splitDoublePage: Schema.Boolean,
 });
 
-type GenerateFormValues = z.infer<typeof generateFormSchema>;
+type GenerateFormValues = typeof generateFormSchema.Type;
 
 interface GenerateEpubPanelProps {
 	manga: Manga;
@@ -142,7 +142,7 @@ export function GenerateEpubPanel({
 		handleSubmit,
 		formState: { errors },
 	} = useForm<GenerateFormValues>({
-		resolver: zodResolver(generateFormSchema),
+		resolver: effectTsResolver(generateFormSchema),
 		defaultValues: {
 			creator: manga.staff[0] ? manga.staff[0].name : "",
 			filename: displayTitle(manga),

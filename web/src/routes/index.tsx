@@ -1,5 +1,5 @@
 import { createFileRoute, redirect } from "@tanstack/react-router";
-import { z } from "zod";
+import { Schema } from "effect";
 import { authKeys, getCurrentUser } from "@/auth/auth.queries";
 import { BrowseSection } from "@/components/domain/home/browse-section";
 import { FavoritesOnlyPage } from "@/components/domain/home/favorites-only-page";
@@ -7,8 +7,12 @@ import { FavoritesSection } from "@/components/domain/home/favorites-section";
 import { NewDropsSection } from "@/components/domain/home/new-drops-section";
 import { Header } from "@/components/header";
 
+const homeSearchSchema = Schema.standardSchemaV1(
+	Schema.Struct({ favorites: Schema.optional(Schema.Boolean) }),
+);
+
 export const Route = createFileRoute("/")({
-	validateSearch: z.object({ favorites: z.boolean().optional() }),
+	validateSearch: homeSearchSchema,
 	beforeLoad: async ({ context }) => {
 		const user = await context.queryClient.ensureQueryData({
 			queryKey: authKeys.currentUser(),

@@ -1,8 +1,8 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { effectTsResolver } from "@hookform/resolvers/effect-ts";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
+import { Schema } from "effect";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
 import { authKeys } from "@/auth/auth.queries";
 import { AuthCard } from "@/components/auth/auth-card";
 import { PasswordField } from "@/components/auth/password-field";
@@ -10,17 +10,18 @@ import { TextField } from "@/components/auth/text-field";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { ApiError, login } from "@/lib/api";
+import { Email, requiredString } from "@/lib/form-schema";
 
 export const Route = createFileRoute("/login")({
 	component: LoginPage,
 });
 
-const loginSchema = z.object({
-	email: z.string().email("Enter a valid email address"),
-	password: z.string().min(1, "Password is required"),
+const loginSchema = Schema.Struct({
+	email: Email,
+	password: requiredString("Password is required"),
 });
 
-type LoginFormValues = z.infer<typeof loginSchema>;
+type LoginFormValues = typeof loginSchema.Type;
 
 function LoginPage() {
 	const navigate = useNavigate();
@@ -30,7 +31,7 @@ function LoginPage() {
 		handleSubmit,
 		formState: { errors },
 	} = useForm<LoginFormValues>({
-		resolver: zodResolver(loginSchema),
+		resolver: effectTsResolver(loginSchema),
 		defaultValues: { email: "", password: "" },
 	});
 

@@ -1,24 +1,25 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { effectTsResolver } from "@hookform/resolvers/effect-ts";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { Schema } from "effect";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
 import { AuthCard } from "@/components/auth/auth-card";
 import { PasswordField } from "@/components/auth/password-field";
 import { adminKeys } from "@/components/domain/admin/admin.queries";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { ApiError, getPasswordReset, resetPassword } from "@/lib/api";
+import { Password } from "@/lib/form-schema";
 
 export const Route = createFileRoute("/reset-password/$token")({
 	component: ResetPasswordPage,
 });
 
-const resetSchema = z.object({
-	password: z.string().min(8, "Password must be at least 8 characters"),
+const resetSchema = Schema.Struct({
+	password: Password,
 });
 
-type ResetFormValues = z.infer<typeof resetSchema>;
+type ResetFormValues = typeof resetSchema.Type;
 
 function ResetPasswordPage() {
 	const { token } = Route.useParams();
@@ -35,7 +36,7 @@ function ResetPasswordPage() {
 		handleSubmit,
 		formState: { errors },
 	} = useForm<ResetFormValues>({
-		resolver: zodResolver(resetSchema),
+		resolver: effectTsResolver(resetSchema),
 		defaultValues: { password: "" },
 	});
 

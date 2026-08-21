@@ -1,18 +1,19 @@
-import { zodResolver } from "@hookform/resolvers/zod";
+import { effectTsResolver } from "@hookform/resolvers/effect-ts";
+import { Schema } from "effect";
 import { useForm } from "react-hook-form";
-import { z } from "zod";
 import { PasswordField } from "@/components/auth/password-field";
 import { TextField } from "@/components/auth/text-field";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { Email, Password, requiredString } from "@/lib/form-schema";
 
-const accountSchema = z.object({
-	pseudo: z.string().min(1, "Name is required"),
-	email: z.string().email("Enter a valid email address"),
-	password: z.string().min(8, "Password must be at least 8 characters"),
+const accountSchema = Schema.Struct({
+	pseudo: requiredString("Name is required"),
+	email: Email,
+	password: Password,
 });
 
-export type AccountFormValues = z.infer<typeof accountSchema>;
+export type AccountFormValues = typeof accountSchema.Type;
 
 interface AccountFormProps {
 	submitLabel: string;
@@ -34,7 +35,7 @@ export function AccountForm({
 		handleSubmit,
 		formState: { errors },
 	} = useForm<AccountFormValues>({
-		resolver: zodResolver(accountSchema),
+		resolver: effectTsResolver(accountSchema),
 		defaultValues: { pseudo: "", email: "", password: "" },
 	});
 
