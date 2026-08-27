@@ -49,7 +49,7 @@ export class ProviderRepository extends Effect.Service<ProviderRepository>()(
 									return inserted[0].id;
 								}
 
-								const row = yield* db.query.providers
+								const row = yield* tx.query.providers
 									.findFirst({ where: { name } })
 									.pipe(Effect.mapError(toSQLError));
 

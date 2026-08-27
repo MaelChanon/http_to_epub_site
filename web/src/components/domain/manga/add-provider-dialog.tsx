@@ -156,6 +156,11 @@ export function AddProviderDialog({
 										<p className="truncate text-[13px] text-(--ink)">
 											{result.name}
 										</p>
+										<p className="font-mono text-[11px] text-(--ink-muted)">
+											{result.chapterCount > 0
+												? `${result.chapterCount} ch`
+												: "chapter count unknown"}
+										</p>
 										{provider && (
 											<a
 												href={providerCatalogUrl(provider, result.tag)}

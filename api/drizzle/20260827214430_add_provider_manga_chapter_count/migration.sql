@@ -1,0 +1,1 @@
+ALTER TABLE "provider_mangas" ADD COLUMN "chapter_count" integer DEFAULT 0 NOT NULL;

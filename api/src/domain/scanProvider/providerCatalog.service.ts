@@ -35,7 +35,6 @@ export class ProviderCatalogService extends Effect.Service<ProviderCatalogServic
 								providerId,
 								tag: entry.tag,
 								name: entry.name,
-								coverUrl: entry.coverUrl,
 								chapterCount: entry.chapterCount,
 							})),
 						)
@@ -43,6 +42,7 @@ export class ProviderCatalogService extends Effect.Service<ProviderCatalogServic
 							target: [providerMangas.providerId, providerMangas.tag],
 							set: {
 								name: sql`excluded.name`,
+								chapterCount: sql`excluded.chapter_count`,
 								updatedAt: sql`now()`,
 							},
 						})
@@ -74,6 +74,7 @@ export class ProviderCatalogService extends Effect.Service<ProviderCatalogServic
 							new ProviderMangaSummary({
 								tag: row.tag,
 								name: row.name,
+								chapterCount: row.chapterCount,
 								updatedAt: row.updatedAt,
 							}),
 					);

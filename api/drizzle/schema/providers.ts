@@ -52,6 +52,7 @@ export const providerMangas = pgTable(
 			.references(() => providers.id, { onDelete: "cascade" }),
 		tag: text("tag").notNull(),
 		name: text("name").notNull(),
+		chapterCount: integer("chapter_count").notNull().default(0),
 		updatedAt: timestamp("updated_at", { withTimezone: true })
 			.notNull()
 			.defaultNow(),
