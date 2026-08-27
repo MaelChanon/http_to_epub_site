@@ -28,7 +28,7 @@ const MangaProviderChapterPagePath = Schema.Struct({
 	mangaId: AniListIdFromString,
 	provider: MangaProviderName,
 	number: Schema.compose(Schema.NumberFromString, Schema.Int),
-	pageIndex: Schema.compose(Schema.NumberFromString, Schema.Int),
+	pageNumber: Schema.compose(Schema.NumberFromString, Schema.Int),
 });
 
 const ProviderPath = Schema.Struct({ provider: MangaProviderName });
@@ -77,7 +77,7 @@ export class ScanProviderApiGroup extends HttpApiGroup.make("scanProvider")
 	.add(
 		HttpApiEndpoint.get(
 			"getMangaProviderChapterPage",
-			"/scan/:mangaId/providers/:provider/chapters/:number/pages/:pageIndex",
+			"/scan/:mangaId/providers/:provider/chapters/:number/pages/:pageNumber",
 		)
 			.addSuccess(HttpApiSchema.Empty(302))
 			.middleware(Authentication)

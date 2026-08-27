@@ -66,10 +66,10 @@ export class PageNotFound extends Data.TaggedError("PageNotFound")<{
 	readonly mangaId: MangaDbId;
 	readonly provider: MangaProvider;
 	readonly number: number;
-	readonly pageIndex: number;
+	readonly pageNumber: number;
 }> {
 	get internalMessage() {
-		return `Page ${this.pageIndex} not found for chapter ${this.number} of manga ${this.mangaId} on provider ${this.provider}`;
+		return `Page ${this.pageNumber} not found for chapter ${this.number} of manga ${this.mangaId} on provider ${this.provider}`;
 	}
 }
 
@@ -489,8 +489,8 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 
 					return new ChapterPages({
 						pages: sortedPages.map(
-							(_, index) =>
-								`/api/scan/${mangaId}/providers/${provider}/chapters/${chapterNumber}/pages/${index}`,
+							(page) =>
+								`/api/scan/${mangaId}/providers/${provider}/chapters/${chapterNumber}/pages/${page.number}`,
 						),
 						hasNextChapter: nextChapterRow !== undefined,
 					});
@@ -501,7 +501,7 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 				mangaDbId: MangaDbId,
 				provider: MangaProvider,
 				chapterNumber: number,
-				pageIndex: number,
+				pageNumber: number,
 			) {
 				return Effect.gen(function* () {
 					const providerId = yield* resolveProviderId(mangaDbId, provider);
@@ -528,7 +528,7 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 
 					const pageRow = yield* db.query.pages
 						.findFirst({
-							where: { chapterId: chapterRow.id, number: pageIndex + 1 },
+							where: { chapterId: chapterRow.id, number: pageNumber },
 						})
 						.pipe(Effect.mapError(toSQLError));
 
@@ -538,7 +538,7 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 								mangaId: mangaDbId,
 								provider,
 								number: chapterNumber,
-								pageIndex,
+								pageNumber,
 							}),
 						);
 					}

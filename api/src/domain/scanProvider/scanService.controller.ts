@@ -86,7 +86,7 @@ export const ScanProviderApiGroupLive = HttpApiBuilder.group(
 								manga.id,
 								path.provider,
 								path.number,
-								path.pageIndex,
+								path.pageNumber,
 							),
 						),
 						Effect.map((url) => HttpServerResponse.redirect(url)),
