@@ -131,73 +131,84 @@ export class MangaService extends Effect.Service<MangaService>()(
 			}
 
 			function createManga(data: MangaProviderData, userId: UserId) {
-				return db
-					.transaction((tx) =>
-						Effect.gen(function* () {
-							const existing = yield* tx.query.mangas
-								.findFirst({ where: { mangaId: data.mangaId } })
-								.pipe(Effect.mapError(toSQLError));
+				return Effect.gen(function* () {
+					const existing = yield* db.query.mangas
+						.findFirst({ where: { mangaId: data.mangaId } })
+						.pipe(Effect.mapError(toSQLError));
 
-							const mangaDbId = existing?.id ?? crypto.randomUUID();
-							const path = `${mangaDbId}/cover.${new URL(data.coverImageUrl).pathname.split(".").pop() || "jpg"}`;
+					const mangaDbId = existing?.id ?? crypto.randomUUID();
+					const path = `${mangaDbId}/cover.${new URL(data.coverImageUrl).pathname.split(".").pop() || "jpg"}`;
 
-							const values = {
-								id: mangaDbId,
-								mangaId: data.mangaId,
-								path,
-								titleRomaji: data.titleRomaji,
-								titleEnglish: data.titleEnglish,
-								titleNative: data.titleNative,
-								format: data.format,
-								status: data.status,
-								publishedAt: data.publishedAt,
-								totalChapters: data.totalChapters,
-								score: data.score,
-								summary: data.summary,
-							};
+					yield* s3.manga.fetchAndUpload(path, data.coverImageUrl);
 
-							const manga = yield* tx
-								.insert(mangas)
-								.values(values)
-								.onConflictDoUpdate({ target: mangas.mangaId, set: values })
-								.returning()
-								.pipe(
-									Effect.mapError(toSQLError),
-									getFirst(new SQLError({ message: "failed to create manga" })),
-								);
-							yield* Effect.all([
-								tx.delete(mangaStaff).where(eq(mangaStaff.mangaId, manga.id)),
-								tx.delete(mangaGenres).where(eq(mangaGenres.mangaId, manga.id)),
-							]).pipe(Effect.mapError(toSQLError));
+					const values = {
+						id: mangaDbId,
+						mangaId: data.mangaId,
+						path,
+						titleRomaji: data.titleRomaji,
+						titleEnglish: data.titleEnglish,
+						titleNative: data.titleNative,
+						format: data.format,
+						status: data.status,
+						publishedAt: data.publishedAt,
+						totalChapters: data.totalChapters,
+						score: data.score,
+						summary: data.summary,
+					};
 
-							if (data.staff.length > 0) {
-								yield* tx
-									.insert(mangaStaff)
-									.values(
-										data.staff.map((staff) => ({
-											mangaId: manga.id,
-											name: staff.name,
-											role: staff.role,
-										})),
-									)
-									.pipe(Effect.mapError(toSQLError));
-							}
+					const manga = yield* db
+						.transaction((tx) =>
+							Effect.gen(function* () {
+								const manga = yield* tx
+									.insert(mangas)
+									.values(values)
+									.onConflictDoUpdate({ target: mangas.mangaId, set: values })
+									.returning()
+									.pipe(
+										Effect.mapError(toSQLError),
+										getFirst(
+											new SQLError({ message: "failed to create manga" }),
+										),
+									);
+								yield* Effect.all([
+									tx.delete(mangaStaff).where(eq(mangaStaff.mangaId, manga.id)),
+									tx
+										.delete(mangaGenres)
+										.where(eq(mangaGenres.mangaId, manga.id)),
+								]).pipe(Effect.mapError(toSQLError));
 
-							if (data.genres.length > 0) {
-								yield* tx
-									.insert(mangaGenres)
-									.values(
-										data.genres.map((genre) => ({ mangaId: manga.id, genre })),
-									)
-									.pipe(Effect.mapError(toSQLError));
-							}
+								if (data.staff.length > 0) {
+									yield* tx
+										.insert(mangaStaff)
+										.values(
+											data.staff.map((staff) => ({
+												mangaId: manga.id,
+												name: staff.name,
+												role: staff.role,
+											})),
+										)
+										.pipe(Effect.mapError(toSQLError));
+								}
 
-							yield* s3.manga.fetchAndUpload(path, data.coverImageUrl);
+								if (data.genres.length > 0) {
+									yield* tx
+										.insert(mangaGenres)
+										.values(
+											data.genres.map((genre) => ({
+												mangaId: manga.id,
+												genre,
+											})),
+										)
+										.pipe(Effect.mapError(toSQLError));
+								}
 
-							return yield* getManga(AniListId.make(manga.mangaId), userId);
-						}),
-					)
-					.pipe(Effect.catchTag("SqlError", toSQLError));
+								return manga;
+							}),
+						)
+						.pipe(Effect.catchTag("SqlError", toSQLError));
+
+					return yield* getManga(AniListId.make(manga.mangaId), userId);
+				});
 			}
 
 			function addFavorite(mangaId: AniListId, userId: UserId) {

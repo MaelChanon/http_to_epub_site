@@ -16,7 +16,6 @@ import { ScanEventsService } from "./scanEvents.service.js";
 import {
 	ChapterPages,
 	ChapterSummary,
-	isMangaProviderTransitioning,
 	MangaProviderChapters,
 	type MangaProviderStatus,
 	ProviderArchive,
@@ -170,6 +169,28 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 				);
 			}
 
+			// Only reached when a take failed, so the link is held by someone else;
+			// the re-read is for the error payload, not for the decision.
+			function mangaProviderBusy(
+				mangaDbId: MangaDbId,
+				provider: MangaProvider,
+			) {
+				return providerRepo.findMangaProviderLink(mangaDbId, provider).pipe(
+					Effect.flatMap((link) =>
+						Effect.fail(
+							new MangaProviderBusy({
+								mangaId: mangaDbId,
+								provider,
+								status: Option.match(link, {
+									onNone: () => "UPDATING" as const,
+									onSome: (held) => held.status,
+								}),
+							}),
+						),
+					),
+				);
+			}
+
 			function syncMangaChapters(
 				mangaDbId: MangaDbId,
 				slug: string,
@@ -187,33 +208,20 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 						);
 					}
 
-					const existingLink = yield* providerRepo.findMangaProviderLink(
-						mangaDbId,
-						provider,
-					);
-					if (
-						Option.isSome(existingLink) &&
-						isMangaProviderTransitioning(existingLink.value.status)
-					) {
-						return yield* Effect.fail(
-							new MangaProviderBusy({
-								mangaId: mangaDbId,
-								provider,
-								status: existingLink.value.status,
-							}),
-						);
-					}
-
 					const startStatus: MangaProviderStatus = isNewLink
 						? "CREATING"
 						: "UPDATING";
 
-					const providerId = yield* providerRepo.ensureMangaProviderLink(
+					const acquired = yield* providerRepo.acquireMangaProviderLink(
 						mangaDbId,
 						provider,
 						slug,
 						startStatus,
 					);
+					const providerId = yield* Option.match(acquired, {
+						onNone: () => mangaProviderBusy(mangaDbId, provider),
+						onSome: Effect.succeed,
+					});
 					yield* scanEvents.publish(
 						mangaDbId,
 						new ScanEvent({ provider, status: startStatus }),
@@ -231,7 +239,14 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 									processChapter(mangaDbId, providerId, {
 										...chapter,
 										chapterNumber: chapter.chapterNumber + 1,
-									}),
+									}).pipe(
+										Effect.tap(() =>
+											providerRepo.touchMangaProviderLink(
+												mangaDbId,
+												providerId,
+											),
+										),
+									),
 								{ concurrency: 3 },
 							);
 
@@ -358,25 +373,25 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 						mangaDbId,
 						provider,
 					);
-					const { providerId, status } = yield* Option.match(link, {
+					const { providerId } = yield* Option.match(link, {
 						onNone: () =>
 							Effect.fail(
 								new MangaProviderNotLinked({ mangaId: mangaDbId, provider }),
 							),
 						onSome: Effect.succeed,
 					});
-					if (isMangaProviderTransitioning(status)) {
-						return yield* Effect.fail(
-							new MangaProviderBusy({ mangaId: mangaDbId, provider, status }),
-						);
+
+					const acquired = yield* providerRepo.acquireMangaProviderDeletion(
+						mangaDbId,
+						providerId,
+					);
+					if (!acquired) {
+						return yield* mangaProviderBusy(mangaDbId, provider);
 					}
 
-					yield* Effect.andThen(
-						providerRepo.setStatus(mangaDbId, providerId, "DELETING"),
-						scanEvents.publish(
-							mangaDbId,
-							new ScanEvent({ provider, status: "DELETING" }),
-						),
+					yield* scanEvents.publish(
+						mangaDbId,
+						new ScanEvent({ provider, status: "DELETING" }),
 					);
 
 					yield* Effect.gen(function* () {

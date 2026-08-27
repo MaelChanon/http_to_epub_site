@@ -172,10 +172,11 @@ export class EpubService extends Effect.Service<EpubService>()(
 								}),
 						);
 
-						const coverUrl = yield* s3.user.getUrl(
-							row.coverKey ?? row.manga.path,
-							INTERNAL_PRESIGN_TTL_SECONDS,
-						);
+						// The user-supplied cover is a temp object in the user bucket,
+						// the fallback is the manga cover in the manga bucket.
+						const coverUrl = yield* row.coverKey
+							? s3.user.getUrl(row.coverKey, INTERNAL_PRESIGN_TTL_SECONDS)
+							: s3.manga.getUrl(row.manga.path, INTERNAL_PRESIGN_TTL_SECONDS);
 
 						const built = yield* mangaFetcher.buildEpub({
 							tag: String(row.manga.mangaId),

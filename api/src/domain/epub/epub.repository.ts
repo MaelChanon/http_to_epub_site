@@ -59,6 +59,7 @@ export class EpubRepository extends Effect.Service<EpubRepository>()(
 							lt(epubs.updatedAt, olderThan),
 						),
 					)
+					.returning({ coverKey: epubs.coverKey })
 					.pipe(Effect.mapError(toSQLError));
 			}
 

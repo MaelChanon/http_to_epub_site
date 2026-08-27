@@ -39,6 +39,9 @@ export const mangaProviders = pgTable(
 			.references(() => providers.id, { onDelete: "cascade" }),
 		tag: text("tag").notNull(),
 		status: mangaProviderStatus("status").notNull().default("UPDATED"),
+		updatedAt: timestamp("updated_at", { withTimezone: true })
+			.notNull()
+			.defaultNow(),
 	},
 	(table) => [primaryKey({ columns: [table.mangaId, table.providerId] })],
 );

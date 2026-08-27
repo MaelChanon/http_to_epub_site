@@ -9,14 +9,28 @@ export const MangaProviderStatus = Schema.Literal(
 );
 export type MangaProviderStatus = typeof MangaProviderStatus.Type;
 
-const TRANSITIONING_STATUSES = new Set<MangaProviderStatus>([
+export const TRANSITIONING_STATUSES = [
 	"CREATING",
 	"UPDATING",
 	"DELETING",
-]);
+] as const satisfies readonly MangaProviderStatus[];
+
+const transitioningStatuses = new Set<MangaProviderStatus>(
+	TRANSITIONING_STATUSES,
+);
 
 export function isMangaProviderTransitioning(status: MangaProviderStatus) {
-	return TRANSITIONING_STATUSES.has(status);
+	return transitioningStatuses.has(status);
+}
+
+// A sync daemon heartbeats `manga_providers.updated_at` after every chapter, so
+// a transitioning row that hasn't moved for this long belongs to a daemon that
+// died with its process: the link can be taken over, and the reconciliation
+// sweep resolves it to FAILED.
+export const STALE_TRANSITION_MINUTES = 30;
+
+export function staleTransitionCutoff() {
+	return new Date(Date.now() - STALE_TRANSITION_MINUTES * 60 * 1000);
 }
 
 export const PROVIDERS: readonly MangaProviderName[] = [
