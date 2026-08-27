@@ -322,37 +322,28 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 
 			function listMangaProviders(mangaDbId: MangaDbId) {
 				return Effect.gen(function* () {
-					const [rows, links] = yield* Effect.all([
-						db.query.chapters
-							.findMany({
-								where: { mangaId: mangaDbId },
-								with: { pages: true, provider: true },
-								orderBy: { number: "asc" },
-							})
-							.pipe(Effect.mapError(toSQLError)),
-						db.query.mangaProviders
-							.findMany({
-								where: { mangaId: mangaDbId },
-								with: { provider: true },
-							})
-							.pipe(Effect.mapError(toSQLError)),
-					]);
-
-					const chaptersByProvider = new Map<MangaProvider, ChapterSummary[]>();
-					for (const row of rows) {
-						const provider = row.provider.name;
-						const summaries = chaptersByProvider.get(provider) ?? [];
-						summaries.push(toChapterSummary(row));
-						chaptersByProvider.set(provider, summaries);
-					}
+					const links = yield* db.query.mangaProviders
+						.findMany({
+							where: { mangaId: mangaDbId },
+							with: {
+								provider: true,
+								catalogEntry: { columns: { chapterCount: true } },
+								chapters: {
+									with: { pages: true },
+									orderBy: { number: "asc" },
+								},
+							},
+						})
+						.pipe(Effect.mapError(toSQLError));
 
 					return links.map(
 						(link) =>
 							new MangaProviderChapters({
 								provider: link.provider.name,
-								chapters: chaptersByProvider.get(link.provider.name) ?? [],
+								chapters: link.chapters.map(toChapterSummary),
 								tag: link.tag,
 								status: link.status,
+								chapterCount: link.catalogEntry?.chapterCount ?? 0,
 							}),
 					);
 				});

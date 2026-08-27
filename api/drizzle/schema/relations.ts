@@ -75,6 +75,14 @@ export const relations = defineRelations(schema, (r) => ({
 			to: r.providers.id,
 			optional: false,
 		}),
+		chapters: r.many.chapters({
+			from: [r.mangaProviders.mangaId, r.mangaProviders.providerId],
+			to: [r.chapters.mangaId, r.chapters.providerId],
+		}),
+		catalogEntry: r.one.providerMangas({
+			from: [r.mangaProviders.providerId, r.mangaProviders.tag],
+			to: [r.providerMangas.providerId, r.providerMangas.tag],
+		}),
 	},
 	chapters: {
 		manga: r.one.mangas({
