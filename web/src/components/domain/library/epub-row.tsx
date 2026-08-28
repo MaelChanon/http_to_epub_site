@@ -1,13 +1,16 @@
-import { IconDownload } from "@/components/icons";
+import { useState } from "react";
+import { IconDownload, IconTrash } from "@/components/icons";
 import { StatusBars } from "@/components/ui/status-bars";
 import type { Epub } from "@/lib/api";
 import { formatEnumLabel, providerColor } from "../manga/manga.util";
+import { DeleteEpubDialog } from "./delete-epub-dialog";
 
 export function EpubRow({ epub }: { epub: Epub }) {
 	const isPending = epub.status === "PENDING" || epub.status === "PROCESSING";
+	const [pendingDelete, setPendingDelete] = useState(false);
 
 	return (
-		<div className="grid grid-cols-[1fr_100px_90px_110px_40px] items-center gap-4 border-b border-(--line) px-2 py-3">
+		<div className="grid grid-cols-[1fr_100px_90px_110px_40px_40px] items-center gap-4 border-b border-(--line) px-2 py-3">
 			<div className="min-w-0">
 				<div className="truncate text-[13px] text-(--ink)">
 					{epub.filename}.epub
@@ -54,6 +57,21 @@ export function EpubRow({ epub }: { epub: Epub }) {
 			>
 				<IconDownload className="size-3.5" />
 			</a>
+			<button
+				type="button"
+				aria-label={`Delete ${epub.filename}`}
+				disabled={isPending}
+				onClick={() => setPendingDelete(true)}
+				className={`grid size-7 shrink-0 place-items-center rounded-md text-(--ink-muted) hover:text-destructive ${
+					isPending ? "pointer-events-none opacity-30" : ""
+				}`}
+			>
+				<IconTrash className="size-3.5" />
+			</button>
+			<DeleteEpubDialog
+				epub={pendingDelete ? epub : undefined}
+				onOpenChange={setPendingDelete}
+			/>
 		</div>
 	);
 }

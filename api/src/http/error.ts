@@ -95,6 +95,14 @@ export const toHttpError = (
 						}),
 					),
 				),
+				Match.tag("EpubGenerationInProgress", () =>
+					Effect.fail(
+						new ConflictError({
+							message:
+								"This epub cannot be deleted while it is being generated",
+						}),
+					),
+				),
 				Match.tag("EpubChapterRangeEmpty", () =>
 					Effect.fail(
 						new BadRequestError({

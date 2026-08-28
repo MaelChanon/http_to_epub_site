@@ -33,4 +33,10 @@ export class EpubApiGroup extends HttpApiGroup.make("epub")
 			.addSuccess(HttpApiSchema.Empty(302))
 			.middleware(Authentication)
 			.setPath(EpubIdPath),
+	)
+	.add(
+		HttpApiEndpoint.del("deleteEpub", "/epub/:id")
+			.addSuccess(Schema.Void)
+			.middleware(Authentication)
+			.setPath(EpubIdPath),
 	) {}

@@ -268,6 +268,12 @@ export function listEpubs(): Promise<readonly MangaEpubs[]> {
 	);
 }
 
+export function deleteEpub(id: Epub["id"]): Promise<void> {
+	return Effect.runPromise(
+		client.epub.deleteEpub({ path: { id } }).pipe(Effect.catchAll(toApiError)),
+	);
+}
+
 export function searchProviderCatalog(
 	provider: MangaProviderName,
 	q: string,

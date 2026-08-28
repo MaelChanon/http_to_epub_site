@@ -42,6 +42,11 @@ export const EpubApiGroupLive = HttpApiBuilder.group(Api, "epub", (handlers) =>
 					Effect.map((url) => HttpServerResponse.redirect(url)),
 					Effect.catchAll(toHttpError),
 				),
+			)
+			.handle("deleteEpub", ({ path }) =>
+				Effect.flatMap(CurrentUser, (user) =>
+					epubService.deleteEpub(user, path.id),
+				).pipe(Effect.catchAll(toHttpError)),
 			);
 	}),
 );

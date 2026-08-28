@@ -9,6 +9,7 @@ import type { ArchiveError } from "./archive/archive.service.js";
 import type {
 	EpubChapterRangeEmpty,
 	EpubCoverInvalid,
+	EpubGenerationInProgress,
 	EpubNotFound,
 	EpubNotReady,
 } from "./epub/epub.service.js";
@@ -63,4 +64,5 @@ export type DomainError =
 	| EpubNotFound
 	| EpubNotReady
 	| EpubChapterRangeEmpty
-	| EpubCoverInvalid;
+	| EpubCoverInvalid
+	| EpubGenerationInProgress;

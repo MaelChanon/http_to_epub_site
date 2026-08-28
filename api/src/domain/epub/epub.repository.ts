@@ -37,6 +37,13 @@ export class EpubRepository extends Effect.Service<EpubRepository>()(
 					.pipe(Effect.mapError(toSQLError));
 			}
 
+			function remove(id: string) {
+				return db
+					.delete(epubs)
+					.where(eq(epubs.id, id))
+					.pipe(Effect.mapError(toSQLError));
+			}
+
 			function findById(id: string) {
 				return db.query.epubs
 					.findFirst({
@@ -101,6 +108,7 @@ export class EpubRepository extends Effect.Service<EpubRepository>()(
 				updateStatus,
 				findById,
 				failStale,
+				remove,
 			} as const;
 		}),
 		dependencies: [DBLayer],

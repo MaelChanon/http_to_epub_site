@@ -2,9 +2,10 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import type {
 	AniListId,
 	CreateEpubPayload,
+	Epub,
 	MangaProviderName,
 } from "@/lib/api";
-import { generateEpub, listEpubs } from "@/lib/api";
+import { deleteEpub, generateEpub, listEpubs } from "@/lib/api";
 
 export const epubKeys = {
 	all: ["epub"] as const,
@@ -34,6 +35,17 @@ export function useGenerateEpub(
 	return useMutation({
 		mutationFn: (payload: CreateEpubPayload) =>
 			generateEpub(mangaId, provider, payload),
+		onSuccess: () => {
+			queryClient.invalidateQueries({ queryKey: epubKeys.list() });
+		},
+	});
+}
+
+export function useDeleteEpub() {
+	const queryClient = useQueryClient();
+
+	return useMutation({
+		mutationFn: (id: Epub["id"]) => deleteEpub(id),
 		onSuccess: () => {
 			queryClient.invalidateQueries({ queryKey: epubKeys.list() });
 		},

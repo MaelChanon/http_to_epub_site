@@ -51,6 +51,17 @@ export class EpubNotReady extends Data.TaggedError("EpubNotReady")<{
 	}
 }
 
+export class EpubGenerationInProgress extends Data.TaggedError(
+	"EpubGenerationInProgress",
+)<{
+	readonly id: EpubId;
+	readonly status: EpubStatus;
+}> {
+	get internalMessage() {
+		return `Epub ${this.id} cannot be deleted while it is being generated (status=${this.status})`;
+	}
+}
+
 export class EpubChapterRangeEmpty extends Data.TaggedError(
 	"EpubChapterRangeEmpty",
 )<{
@@ -357,11 +368,35 @@ export class EpubService extends Effect.Service<EpubService>()(
 				});
 			}
 
+			function deleteEpub(user: User, epubId: string) {
+				return Effect.gen(function* () {
+					const row = yield* epubRepo.findById(epubId);
+					if (!row || row.userId !== user.id) {
+						return yield* Effect.fail(
+							new EpubNotFound({ id: EpubId.make(epubId) }),
+						);
+					}
+					if (row.status === "PENDING" || row.status === "PROCESSING") {
+						return yield* Effect.fail(
+							new EpubGenerationInProgress({
+								id: EpubId.make(epubId),
+								status: row.status,
+							}),
+						);
+					}
+
+					const keys = row.coverKey ? [row.s3Key, row.coverKey] : [row.s3Key];
+					yield* s3.user.deleteObjects(keys);
+					yield* epubRepo.remove(epubId);
+				});
+			}
+
 			return {
 				uploadCover,
 				requestGeneration,
 				listForUser,
 				getDownloadUrl,
+				deleteEpub,
 			} as const;
 		}),
 		dependencies: [
