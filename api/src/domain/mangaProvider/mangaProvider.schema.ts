@@ -16,10 +16,15 @@ export const AniListDate = Schema.Struct({
 	day: Schema.NullOr(Schema.Int),
 });
 
+const TrimmedNonEmptyString = Schema.compose(
+	Schema.Trim,
+	Schema.NonEmptyString,
+);
+
 export const AniListStaffEdge = Schema.Struct({
-	role: Schema.NonEmptyTrimmedString,
+	role: TrimmedNonEmptyString,
 	node: Schema.Struct({
-		name: Schema.Struct({ full: Schema.NonEmptyTrimmedString }),
+		name: Schema.Struct({ full: TrimmedNonEmptyString }),
 	}),
 });
 
