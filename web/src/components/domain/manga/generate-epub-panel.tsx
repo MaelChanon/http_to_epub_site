@@ -5,7 +5,6 @@ import { Schema } from "effect";
 import { useEffect, useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { IconBolt } from "@/components/icons";
-import { CheckboxField } from "@/components/ui/checkbox-field";
 import { NumberField } from "@/components/ui/number-field";
 import { QuickButton } from "@/components/ui/quick-button";
 import { TextField } from "@/components/ui/text-field";
@@ -63,7 +62,6 @@ const DIM_PRESETS = [
 const generateFormSchema = Schema.Struct({
 	creator: Schema.String,
 	filename: requiredString("Required"),
-	splitDoublePage: Schema.Boolean,
 });
 
 type GenerateFormValues = typeof generateFormSchema.Type;
@@ -146,7 +144,6 @@ export function GenerateEpubPanel({
 		defaultValues: {
 			creator: manga.staff[0] ? manga.staff[0].name : "",
 			filename: displayTitle(manga),
-			splitDoublePage: false,
 		},
 	});
 
@@ -179,7 +176,7 @@ export function GenerateEpubPanel({
 			chapterEnd: range.end,
 			width: dims.w,
 			height: dims.h,
-			splitDoublePage: values.splitDoublePage,
+			splitDoublePage: false,
 			creator: values.creator.trim() || undefined,
 			filename: values.filename,
 			...(cover ? { cover } : {}),
@@ -409,11 +406,6 @@ export function GenerateEpubPanel({
 						placeholder="my-epub"
 						registration={register("filename")}
 						error={errors.filename?.message}
-					/>
-
-					<CheckboxField
-						label="Split double pages"
-						registration={register("splitDoublePage")}
 					/>
 				</div>
 			</form>
