@@ -1,5 +1,5 @@
 import { HttpApiBuilder } from "@effect/platform";
-import { Effect, Option } from "effect";
+import { Effect } from "effect";
 import { CurrentUser, sessionCookie } from "../../auth/auth.middleware.js";
 import { appConfig } from "../../config.js";
 import { Api } from "../../http/api.js";
@@ -46,10 +46,14 @@ export const UsersApiGroupLive = HttpApiBuilder.group(
 										.peekInvite(payload.token)
 										.pipe(Effect.catchAll(toHttpError));
 
-						const existing = yield* Effect.option(
-							userService.getUserByEmail(payload.email),
-						);
-						if (Option.isSome(existing)) {
+						const emailTaken = yield* userService
+							.getUserByEmail(payload.email)
+							.pipe(
+								Effect.as(true),
+								Effect.catchTag("UserNotFound", () => Effect.succeed(false)),
+								Effect.catchAll(toHttpError),
+							);
+						if (emailTaken) {
 							return yield* Effect.fail(
 								new BadRequestError({ message: "User already exists" }),
 							);

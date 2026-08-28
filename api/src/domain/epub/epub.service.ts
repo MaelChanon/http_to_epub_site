@@ -25,7 +25,7 @@ import {
 import { sanitizeFilename } from "./epub.filename.js";
 import { EpubRepository } from "./epub.repository.js";
 
-const INTERNAL_PRESIGN_TTL_SECONDS = 60 * 60 * 60;
+const INTERNAL_PRESIGN_TTL_SECONDS = 60 * 60;
 const MAX_COVER_BYTES = 8 * 1024 * 1024;
 
 const COVER_EXTENSION_BY_CONTENT_TYPE = {

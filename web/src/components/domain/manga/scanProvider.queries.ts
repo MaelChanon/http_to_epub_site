@@ -4,13 +4,9 @@ import {
 	useQuery,
 	useQueryClient,
 } from "@tanstack/react-query";
-import { Schema } from "effect";
+import { Either, Schema } from "effect";
 import { useEffect } from "react";
-import type {
-	AniListId,
-	MangaProviderChapters,
-	MangaProviderName,
-} from "@/lib/api";
+import type { AniListId, MangaProviderName } from "@/lib/api";
 import {
 	buildProviderArchive,
 	deleteMangaProviderChapters,
@@ -99,7 +95,7 @@ export function useDeleteMangaProviderChapters(mangaId: AniListId) {
 	});
 }
 
-const decodeScanEvent = Schema.decodeUnknownSync(ScanEvent);
+const decodeScanEvent = Schema.decodeUnknownEither(Schema.parseJson(ScanEvent));
 
 export function useMangaProviderEvents(mangaId: AniListId) {
 	const queryClient = useQueryClient();
@@ -111,19 +107,9 @@ export function useMangaProviderEvents(mangaId: AniListId) {
 		const queryKey = scanProviderKeys.mangaProviders(mangaId);
 
 		source.onmessage = (event) => {
-			const { provider, status } = decodeScanEvent(JSON.parse(event.data));
-
-			queryClient.setQueryData<readonly MangaProviderChapters[]>(
-				queryKey,
-				(old) => {
-					if (!old) {
-						return old;
-					}
-					return status === null
-						? old.filter((p) => p.provider !== provider)
-						: old.map((p) => (p.provider === provider ? { ...p, status } : p));
-				},
-			);
+			if (Either.isLeft(decodeScanEvent(event.data))) {
+				return;
+			}
 
 			queryClient.invalidateQueries({ queryKey });
 		};

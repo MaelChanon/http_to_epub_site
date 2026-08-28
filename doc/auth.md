@@ -253,8 +253,6 @@ Env vars, see `config.ts` / `.env.sample`:
 - `SESSION_TTL_SECONDS` — session lifetime in Redis (default 7 days). Used.
 - `COOKIE_SECURE` — sets the cookie's `secure` attribute (`false` for local
   dev). Used.
-- `SESSION_COOKIE_NAME` — defined but currently **unused**: the cookie name
-  is hardcoded as `"session"` in `auth.middleware.ts`.
 - `INVITE_TTL_SECONDS` — invite link lifetime (default 172800, i.e. 48h).
 - `PASSWORD_RESET_TTL_SECONDS` — reset link lifetime (default 3600, i.e. 1h).
 - `TRUST_PROXY` — read the client IP from `X-Forwarded-For` for rate limiting
