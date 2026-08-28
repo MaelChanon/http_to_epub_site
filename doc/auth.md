@@ -23,10 +23,16 @@ an httpOnly cookie.
   `auth/auth.controller.ts`): looks up the user by email
   (`getByEmailWithPassword`, which is the only repository method that returns
   the password hash), `bcrypt.compare`, creates a session on success, sets the
-  cookie.
+  cookie. An unknown email is not distinguishable from a wrong password: the
+  `UserNotFound` is caught on this route and both branches return the same
+  401 *"Invalid credentials"*, with the comparison run against
+  `DUMMY_PASSWORD_HASH` (`encrypt/encryptService.ts`) when no account matched
+  so the two branches cost the same ~250 ms.
 - **Logout** — `POST /api/auth/logout`: reads the `session` cookie, revokes it
   in Redis (`SessionService.revokeToken`), then re-sets the cookie with
-  `maxAge: 0` to clear it in the browser.
+  `maxAge: 0` to clear it in the browser. Wired to the sign-out button in
+  `components/header.tsx`, which clears the React Query cache and navigates to
+  `/login`.
 - **Current user** — `GET /api/auth/me`: trivially returns the `CurrentUser`
   value injected by the `Authentication` middleware.
 - **Who becomes an administrator** — whichever branch is taken, the handler
@@ -191,8 +197,11 @@ mutating method is the fix.
   `Layer.succeed(FetchHttpClient.RequestInit, { credentials: "include" })`
   (`web/src/lib/api.ts`) so the browser sends/receives the `session` cookie on
   every request. There is no manual token/`Authorization` header handling.
-- `getCurrentUser()` swallows failures and resolves `null` instead of
-  throwing, which lets route guards do a simple truthy check.
+- `getCurrentUser()` resolves `null` on a **401 only**, which lets route guards
+  do a simple truthy check. Any other failure (500, network drop, CORS)
+  rejects, so a valid session is never bounced to `/login` over an API hiccup:
+  the `_authenticated` route catches it with an `errorComponent` offering a
+  retry (`router.invalidate()`).
 - **Route protection** lives in a single pathless layout route,
   `web/src/routes/_authenticated.tsx`:
 
@@ -225,7 +234,10 @@ mutating method is the fix.
   navigates to `/login` once the password is set.
 - Both share `components/auth/account-form.tsx` (name + email +
   password, `react-hook-form` + zod, 8-character minimum); only the copy and
-  the mutation differ.
+  the mutation differ. The same 8-character minimum is enforced server-side by
+  the `Password` schema shared by `CreateUserPayload` and
+  `ResetPasswordPayload` (`user.schema.ts`), so it holds for direct API calls
+  too.
 - `/login` no longer advertises self-service signup or a "forgot password"
   link — both now tell the visitor to ask an administrator.
 - The admin page (`/admin/users`) issues links through
@@ -245,14 +257,43 @@ Env vars, see `config.ts` / `.env.sample`:
   is hardcoded as `"session"` in `auth.middleware.ts`.
 - `INVITE_TTL_SECONDS` — invite link lifetime (default 172800, i.e. 48h).
 - `PASSWORD_RESET_TTL_SECONDS` — reset link lifetime (default 3600, i.e. 1h).
+- `TRUST_PROXY` — read the client IP from `X-Forwarded-For` for rate limiting
+  (default `false`; `true` in `.env.prod.sample`, where nginx fronts the API).
 
 AniList (used by the manga feature) is unrelated to user authentication: it's
 queried anonymously server-side, no OAuth client is involved.
 
+## Rate limiting
+
+`http/rateLimit.ts` is a root middleware (wired in `index.ts` between the CORS
+and CSRF middlewares) that counts requests per client IP in Redis
+(`ratelimit:<rule>:<ip>`, `INCR` + `EXPIRE` on the first hit) for the
+unauthenticated routes only:
+
+| Rule | Route | Limit |
+| --- | --- | --- |
+| `login` | `POST /api/auth/login` | 10 / 5 min |
+| `create-user` | `PUT /api/user` | 5 / 1 h |
+| `password-reset` | `GET`/`POST /api/auth/password-reset/:token` | 20 / 5 min |
+
+Over the limit the middleware answers `429` with a `Retry-After` header taken
+from the key's remaining TTL. This is as much about CPU as about bruteforce:
+bcrypt at cost 12 burns ~250 ms of the single Node thread per attempt. The
+counter fails open — a Redis outage logs an error and lets the request
+through rather than locking everyone out of the login page. The client IP is
+`request.remoteAddress`, i.e. the socket, unless `TRUST_PROXY` is set: then
+`index.ts` puts `HttpMiddleware.xForwardedHeaders` in front of the limiter,
+which rewrites `remoteAddress`/`host` from the `X-Forwarded-*` headers. It
+stays off by default because those headers are caller-controlled with no
+proxy in front.
+
+Note that `effect`'s own `RateLimiter` is a throttle, not a gate — it delays
+tasks until a token frees up instead of rejecting them, holds no per-client
+key and lives in process memory. Queuing bcrypt attempts is the opposite of
+what this route needs, hence the Redis counter.
+
 ## Known gaps
 
-- No logout button/menu wired up in the UI, even though `logout()` is
-  exported and functional.
 - The CSRF middleware lets a mutating request through when it carries
   neither `Origin` nor `Referer` (see [CSRF protection](#csrf-protection)).
 - No self-service password change for a signed-in user — only an

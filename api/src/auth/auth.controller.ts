@@ -4,7 +4,10 @@ import { appConfig } from "../config.js";
 import { MagicLinkService } from "../domain/user/magicLink.service.js";
 import { PasswordResetPreview, User } from "../domain/user/user.schema.js";
 import { UserService } from "../domain/user/user.service.js";
-import { EncryptService } from "../encrypt/encryptService.js";
+import {
+	DUMMY_PASSWORD_HASH,
+	EncryptService,
+} from "../encrypt/encryptService.js";
 import { Api } from "../http/api.js";
 import { toHttpError, UnauthorizedError } from "../http/error.js";
 import { SessionService } from "../session/session.service.js";
@@ -22,13 +25,16 @@ export const AuthApiGroupLive = HttpApiBuilder.group(Api, "auth", (handlers) =>
 				Effect.gen(function* () {
 					const user = yield* userService
 						.getUserByEmailWithPassword(payload.email)
-						.pipe(Effect.catchAll(toHttpError));
+						.pipe(
+							Effect.catchTag("UserNotFound", () => Effect.succeed(null)),
+							Effect.catchAll(toHttpError),
+						);
 
 					const isValid = yield* encryptService
-						.verify(payload.password, user.password)
+						.verify(payload.password, user?.password ?? DUMMY_PASSWORD_HASH)
 						.pipe(Effect.catchAll(toHttpError));
 
-					if (!isValid) {
+					if (user === null || !isValid) {
 						return yield* Effect.fail(
 							new UnauthorizedError({ message: "Invalid credentials" }),
 						);

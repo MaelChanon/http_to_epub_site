@@ -3,6 +3,9 @@ import { Data, Effect } from "effect";
 
 const SALT_ROUNDS = 12;
 
+export const DUMMY_PASSWORD_HASH =
+	"$2b$12$h.PNKYQ98bl3OUQvByyQo.xQYugu3XkGIx0QhRuGxkpoR0nOMbZ/C";
+
 export class EncryptionFailed extends Data.TaggedError("EncryptionFailed")<{
 	readonly message: string;
 }> {

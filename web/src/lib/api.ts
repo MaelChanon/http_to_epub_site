@@ -72,7 +72,10 @@ export function logout(): Promise<void> {
 
 export function getCurrentUser(): Promise<User | null> {
 	return Effect.runPromise(
-		client.auth.me().pipe(Effect.catchAll(() => Effect.succeed(null))),
+		client.auth.me().pipe(
+			Effect.catchTag("UnauthorizedError", () => Effect.succeed(null)),
+			Effect.catchAll(toApiError),
+		),
 	);
 }
 

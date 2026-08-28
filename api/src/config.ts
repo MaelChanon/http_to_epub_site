@@ -29,6 +29,7 @@ class AppConfig {
 		readonly s3SecretAccessKey: string,
 		readonly s3ForcePathStyle: boolean,
 		readonly corsAllowedOrigins: readonly string[],
+		readonly trustProxy: boolean,
 		readonly disableAnilistFetching: boolean,
 		readonly epubOutputDir: string,
 		readonly inviteTtlSeconds: number,
@@ -71,6 +72,7 @@ export const appConfig = Config.map(
 		Config.string("CORS_ALLOWED_ORIGINS").pipe(
 			Config.withDefault("http://localhost:5173"),
 		),
+		Config.boolean("TRUST_PROXY").pipe(Config.withDefault(false)),
 		Config.boolean("DISABLE_ANILIST_FETCHING").pipe(Config.withDefault(false)),
 		Config.string("EPUB_OUTPUT_DIR").pipe(
 			Config.withDefault(DEFAULT_EPUB_OUTPUT_DIR),
@@ -99,6 +101,7 @@ export const appConfig = Config.map(
 		s3SecretAccessKey,
 		s3ForcePathStyle,
 		corsAllowedOrigins,
+		trustProxy,
 		disableAnilistFetching,
 		epubOutputDir,
 		inviteTtlSeconds,
@@ -124,6 +127,7 @@ export const appConfig = Config.map(
 				.split(",")
 				.map((origin) => origin.trim())
 				.filter((origin) => origin.length > 0),
+			trustProxy,
 			disableAnilistFetching,
 			epubOutputDir,
 			inviteTtlSeconds,

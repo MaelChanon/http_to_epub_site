@@ -1,10 +1,16 @@
-import { useQuery } from "@tanstack/react-query";
-import { Link, useRouterState, useSearch } from "@tanstack/react-router";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import {
+	Link,
+	useNavigate,
+	useRouterState,
+	useSearch,
+} from "@tanstack/react-router";
 import { authKeys, getCurrentUser } from "@/auth/auth.queries";
 import { AniListSearchBar } from "@/components/domain/manga/anilist-search-bar";
-import { IconMoon, IconSun } from "@/components/icons";
+import { IconLogout, IconMoon, IconSun } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { useTheme } from "@/hooks/use-theme";
+import { logout } from "@/lib/api";
 
 export function Header() {
 	const { theme, toggleTheme } = useTheme();
@@ -16,6 +22,16 @@ export function Header() {
 	const { data: currentUser } = useQuery({
 		queryKey: authKeys.currentUser(),
 		queryFn: getCurrentUser,
+	});
+	const queryClient = useQueryClient();
+	const navigate = useNavigate();
+	const logoutMutation = useMutation({
+		mutationFn: logout,
+		onSuccess: async () => {
+			queryClient.setQueryData(authKeys.currentUser(), null);
+			await navigate({ to: "/login" });
+			queryClient.clear();
+		},
 	});
 
 	const navLinks = [
@@ -94,6 +110,28 @@ export function Header() {
 					>
 						{theme === "dark" ? <IconSun /> : <IconMoon />}
 					</Button>
+
+					{currentUser && (
+						<>
+							<span
+								title={currentUser.email}
+								className="hidden max-w-[140px] truncate font-mono text-[12px] text-(--ink-soft) sm:inline"
+							>
+								{currentUser.pseudo}
+							</span>
+							<Button
+								type="button"
+								variant="outline"
+								size="icon"
+								onClick={() => logoutMutation.mutate()}
+								disabled={logoutMutation.isPending}
+								aria-label="Sign out"
+								className="size-9 rounded-sm border-(--line) bg-(--bg-elev) text-(--ink-soft) hover:border-(--line-strong) hover:bg-(--bg-elev-2) hover:text-(--ink-soft)"
+							>
+								<IconLogout />
+							</Button>
+						</>
+					)}
 				</div>
 			</div>
 
