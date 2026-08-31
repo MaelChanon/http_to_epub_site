@@ -34,7 +34,11 @@ export const AniListMedia = Schema.Struct({
 	startDate: AniListDate,
 	chapters: Schema.NullOr(Schema.Int),
 	averageScore: Schema.NullOr(Schema.Int),
-	description: Schema.NullOr(Schema.String),
+	description: Schema.NullOr(
+		Schema.compose(Schema.NonEmptyString, Schema.Trim).pipe(
+			Schema.minLength(1),
+		),
+	),
 	coverImage: Schema.Struct({
 		large: Schema.NonEmptyTrimmedString,
 	}),
