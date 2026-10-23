@@ -27,7 +27,7 @@ export const csrfProtection = (allowedOrigins: readonly string[]) =>
 			const origin =
 				request.headers.origin ?? originOf(request.headers.referer ?? "");
 
-			if (origin !== undefined && !allowedOrigins.includes(origin)) {
+			if (origin === undefined || !allowedOrigins.includes(origin)) {
 				return yield* HttpServerResponse.empty({ status: 403 });
 			}
 

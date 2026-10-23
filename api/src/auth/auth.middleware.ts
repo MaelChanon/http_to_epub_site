@@ -5,8 +5,10 @@ import { UnauthorizedError } from "../http/error.js";
 
 export const CurrentUser = Context.GenericTag<User>("CurrentUser");
 
+export const SESSION_COOKIE_NAME = "session";
+
 export const sessionCookie = HttpApiSecurity.apiKey({
-	key: "session",
+	key: SESSION_COOKIE_NAME,
 	in: "cookie",
 });
 

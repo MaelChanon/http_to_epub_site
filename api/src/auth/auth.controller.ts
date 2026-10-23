@@ -11,7 +11,11 @@ import {
 import { Api } from "../http/api.js";
 import { toHttpError, UnauthorizedError } from "../http/error.js";
 import { SessionService } from "../session/session.service.js";
-import { CurrentUser, sessionCookie } from "./auth.middleware.js";
+import {
+	CurrentUser,
+	SESSION_COOKIE_NAME,
+	sessionCookie,
+} from "./auth.middleware.js";
 
 export const AuthApiGroupLive = HttpApiBuilder.group(Api, "auth", (handlers) =>
 	Effect.gen(function* () {
@@ -61,7 +65,7 @@ export const AuthApiGroupLive = HttpApiBuilder.group(Api, "auth", (handlers) =>
 			.handle("logout", () =>
 				Effect.gen(function* () {
 					const request = yield* HttpServerRequest.HttpServerRequest;
-					const token = request.cookies.session;
+					const token = request.cookies[SESSION_COOKIE_NAME];
 					if (token) {
 						yield* sessionService
 							.revokeToken(token)

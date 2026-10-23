@@ -26,7 +26,7 @@ const server = Effect.gen(function* () {
 	const config = yield* appConfig;
 
 	const HttpLive = HttpApiBuilder.serve((httpApp) => {
-		const app = scanEventsRoute(config.sessionCookieName)(
+		const app = scanEventsRoute(
 			rateLimit(csrfProtection(config.corsAllowedOrigins)(httpApp)),
 		);
 		const base = config.trustProxy
