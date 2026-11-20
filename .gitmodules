@@ -1,0 +1,3 @@
+[submodule "http_to_epub"]
+	path = http_to_epub
+	url = https://github.com/MaelChanon/http_to_epub.git
