@@ -153,7 +153,11 @@ or sushiscan.net answers 403. When Cloudflare challenges, `CloudflareService`
 (`api/src/domain/cloudflare/`) gets a `cf_clearance` from the FlareSolverr
 compose service, shares it through Redis and retries once: always go through
 `cloudflare.session(provider).run(...)` for these calls
-(`doc/cloudflare-clearance.md`). Rebuild it locally after changing
+(`doc/cloudflare-clearance.md`). anime-sama bans the prod server's IP, so all
+its traffic (crate, Node image downloads, FlareSolverr) goes through
+`ANIME_SAMA_PROXY_URL` (gluetun VPN in prod): `MangaFetcherService` and
+`CloudflareService` apply it themselves, and image downloads must use
+`ProviderProxyService.httpClient(provider)`. Rebuild it locally after changing
 `manga-fetcher/` or the `http_to_epub/` submodule's Rust source (`index.node`/`lib/`/`target/` are
 gitignored and machine-specific). Full details: `doc/manga-fetcher.md`.
 

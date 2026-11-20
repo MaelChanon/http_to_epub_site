@@ -7,11 +7,11 @@ declare module "./load.cjs" {
 	function getMangaChapters(
 		slug: string,
 		provider: string,
-		clearance: Clearance | null,
+		access: ProviderAccess | null,
 	): Promise<RawMangaChapter[]>;
 	function getProviderCatalog(
 		provider: string,
-		clearance: Clearance | null,
+		access: ProviderAccess | null,
 	): Promise<RawMangaCatalogEntry[]>;
 	function getPageRequestHeaders(
 		provider: string,
@@ -68,6 +68,20 @@ export interface Clearance {
 }
 
 /**
+ * How to reach a provider. Only used by the Cloudflare-fronted providers
+ * (SUSHISCAN_NET, ANIME_SAMA); passing a proxy for another provider is an error.
+ */
+export interface ProviderAccess {
+	/** Only needed while Cloudflare is challenging. */
+	clearance?: Clearance;
+	/**
+	 * HTTP(S) proxy every request goes through, for origins that ban the
+	 * server's own IP. A clearance must have been solved through the same proxy.
+	 */
+	proxyUrl?: string;
+}
+
+/**
  * Stable prefix on errors meaning "Cloudflare is challenging: a (fresh) clearance
  * is needed". Retrying without a new clearance will never succeed.
  */
@@ -88,16 +102,16 @@ export interface MangaCatalogEntry {
 export function getMangaChapters(
 	slug: string,
 	provider: MangaProvider,
-	clearance?: Clearance,
+	access?: ProviderAccess,
 ): Promise<MangaChapter[]> {
-	return addon.getMangaChapters(slug, provider, clearance ?? null);
+	return addon.getMangaChapters(slug, provider, access ?? null);
 }
 
 export function getProviderCatalog(
 	provider: MangaProvider,
-	clearance?: Clearance,
+	access?: ProviderAccess,
 ): Promise<MangaCatalogEntry[]> {
-	return addon.getProviderCatalog(provider, clearance ?? null);
+	return addon.getProviderCatalog(provider, access ?? null);
 }
 
 /**

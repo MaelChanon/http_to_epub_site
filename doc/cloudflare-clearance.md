@@ -90,6 +90,7 @@ Measured, not guessed:
 |---|---|---|
 | `FLARESOLVERR_URL` | `http://localhost:8191/v1` | Empty disables solving: a challenge then fails with `ClearanceUnavailable`. Prod: `http://flaresolverr:8191/v1`. |
 | `CF_CLEARANCE_TTL_SECONDS` | `1500` | Redis TTL of a cached clearance. |
+| `ANIME_SAMA_PROXY_URL` | empty (direct) | HTTP proxy for all anime-sama traffic, see below. Prod: `http://gluetun:8888`. |
 
 The `flaresolverr` service is in both compose files (pinned to `v3.5.2`). It
 is stateless and heavy (one Chrome per solve). **Never publish its port**: it
@@ -99,6 +100,44 @@ fetches any URL it is asked to, which is an SSRF primitive. Dev binds it to
 If FlareSolverr stops getting past Cloudflare, alternatives exposing the
 same `request.get` API (e.g. Byparr) can replace the image without code
 changes.
+
+## Proxy for origins that ban the server's IP (anime-sama)
+
+A challenge solver only helps when Cloudflare *challenges*. anime-sama goes
+further: it **blocks** hosting providers' IP ranges outright. From the prod
+server, every request gets a `403` "Attention Required! | Cloudflare / Sorry,
+you have been blocked" page (no `cf-mitigated`, so it is correctly not
+treated as a challenge), and FlareSolverr itself fails with "Cloudflare has
+blocked this request. Probably your IP is banned". A residential IP (a dev
+machine) is not blocked.
+
+The only fix is to leave through another IP. With `ANIME_SAMA_PROXY_URL` set,
+`ProviderProxyService` (`api/src/domain/providerProxy/`) makes **every**
+anime-sama request go through that proxy:
+
+- the Rust scrapers: `MangaFetcherService` passes it as
+  `ProviderAccess.proxyUrl`, which the crate wires into its `CfSession`
+  (`CfSession::with_options`);
+- Node's page downloads: `ProviderProxyService.httpClient(provider)` is an
+  undici client over a `ProxyAgent`, passed to `fetchAndUpload`;
+- FlareSolverr solves: `CloudflareService` adds `proxy: { url }` to the
+  `request.get` command.
+
+All three must share the exit IP, since a `cf_clearance` is bound to the IP
+that earned it. If the VPN reconnects to another server, the cached clearance
+dies with the old IP; the usual challenge, renew and retry path covers it.
+
+Other providers never use the proxy, and the addon refuses a proxy for the
+providers whose scrapers have no session to carry it (`SUSHISCAN`,
+`MANGA_ORIGINS`).
+
+In prod the proxy is a [gluetun](https://github.com/qdm12/gluetun) container
+(ProtonVPN free, `FREE_ONLY=on`, `HTTPPROXY=on` on `:8888`), credentials in
+`PROTON_OPENVPN_USER` / `PROTON_OPENVPN_PASSWORD` (the OpenVPN/IKEv2
+credentials from account.proton.me, not the account password). Free servers
+are shared and may get banned too: if anime-sama starts answering 403 again,
+restart gluetun to land on another server. Like FlareSolverr, never publish
+its port.
 
 ## Checking it works
 

@@ -29,6 +29,8 @@ services:
       S3_SECRET_ACCESS_KEY: "${S3_SECRET_ACCESS_KEY}"
       S3_FORCE_PATH_STYLE: "true"
       FLARESOLVERR_URL: "http://flaresolverr:8191/v1"
+      # anime-sama bans this server's IP: its traffic leaves through the VPN.
+      ANIME_SAMA_PROXY_URL: "http://gluetun:8888"
     depends_on:
       postgres:
         condition: service_healthy
@@ -82,6 +84,25 @@ services:
     networks: [edge]
     environment:
       LOG_LEVEL: info
+
+  # VPN client exposing an HTTP proxy (:8888) to the other containers. Only
+  # the anime-sama traffic goes through it (ANIME_SAMA_PROXY_URL), including
+  # FlareSolverr's solves for that site. No published port.
+  gluetun:
+    image: qmcgaw/gluetun:v3.41.3
+    restart: unless-stopped
+    networks: [edge]
+    cap_add: [NET_ADMIN]
+    devices:
+      - /dev/net/tun:/dev/net/tun
+    environment:
+      VPN_SERVICE_PROVIDER: protonvpn
+      VPN_TYPE: openvpn
+      # OpenVPN/IKEv2 credentials from account.proton.me, not the account password
+      OPENVPN_USER: "${PROTON_OPENVPN_USER}"
+      OPENVPN_PASSWORD: "${PROTON_OPENVPN_PASSWORD}"
+      FREE_ONLY: "on"
+      HTTPPROXY: "on"
 
 networks:
   edge:

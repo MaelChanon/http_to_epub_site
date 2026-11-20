@@ -11,6 +11,7 @@ import {
 	type MangaProvider,
 } from "../mangaFetcher/mangaFetcher.service.js";
 import type { AniListId } from "../mangaProvider/mangaProvider.domain.js";
+import { ProviderProxyService } from "../providerProxy/providerProxy.service.js";
 import { S3Service } from "../s3/s3.service.js";
 import { ProviderRepository } from "./provider.repository.js";
 import { ScanEventsService } from "./scanEvents.service.js";
@@ -84,6 +85,7 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 			const providerRepo = yield* ProviderRepository;
 			const scanEvents = yield* ScanEventsService;
 			const cloudflare = yield* CloudflareService;
+			const providerProxy = yield* ProviderProxyService;
 
 			function upsertChapterRow(
 				mangaDbId: MangaDbId,
@@ -246,7 +248,10 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 											.getPageRequestHeaders(provider, clearance)
 											.pipe(
 												Effect.flatMap((headers) =>
-													s3.manga.fetchAndUpload(key, url, headers),
+													s3.manga.fetchAndUpload(key, url, {
+														headers,
+														client: providerProxy.httpClient(provider),
+													}),
 												),
 											),
 									(error) =>
@@ -675,6 +680,7 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 			ProviderRepository.Default,
 			ScanEventsService.Default,
 			CloudflareService.Default,
+			ProviderProxyService.Default,
 		],
 	},
 ) {}

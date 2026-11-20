@@ -13,6 +13,7 @@ import {
 	getProviderBaseUrl,
 	type MangaProvider,
 } from "../mangaFetcher/mangaFetcher.service.js";
+import { ProviderProxyService } from "../providerProxy/providerProxy.service.js";
 
 export class ClearanceUnavailable extends Data.TaggedError(
 	"ClearanceUnavailable",
@@ -71,6 +72,7 @@ export class CloudflareService extends Effect.Service<CloudflareService>()(
 			const config = yield* appConfig;
 			const redis = yield* RedisClient;
 			const httpClient = yield* HttpClient.HttpClient;
+			const providerProxy = yield* ProviderProxyService;
 
 			const unavailable = (provider: MangaProvider) => (e: unknown) =>
 				new ClearanceUnavailable({ provider, message: errorMessage(e) });
@@ -100,6 +102,7 @@ export class CloudflareService extends Effect.Service<CloudflareService>()(
 						);
 					}
 					const url = getProviderBaseUrl(provider);
+					const proxyUrl = providerProxy.proxyUrl(provider);
 					yield* Effect.logInfo(`solving cloudflare challenge for ${url}`);
 
 					const response = yield* HttpClientRequest.post(
@@ -109,6 +112,8 @@ export class CloudflareService extends Effect.Service<CloudflareService>()(
 							cmd: "request.get",
 							url,
 							maxTimeout: SOLVE_MAX_TIMEOUT_MS,
+							// Solve from the IP the clearance will be replayed from.
+							...(proxyUrl && { proxy: { url: proxyUrl } }),
 						}),
 						Effect.flatMap(httpClient.execute),
 						Effect.flatMap(
@@ -250,6 +255,10 @@ export class CloudflareService extends Effect.Service<CloudflareService>()(
 
 			return { session, renew } as const;
 		}),
-		dependencies: [RedisClientLive, FetchHttpClient.layer],
+		dependencies: [
+			RedisClientLive,
+			FetchHttpClient.layer,
+			ProviderProxyService.Default,
+		],
 	},
 ) {}

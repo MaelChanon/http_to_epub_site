@@ -8,7 +8,7 @@ use htpp_to_epub::provider::{
     manga_origins::MangaOrigins, sushiscan::SushiScan, CfChapter, Chapter, MangaInfo, Provider,
     TChapter,
 };
-use htpp_to_epub::utils::cloudflare::Clearance;
+use htpp_to_epub::utils::cloudflare::{CfSession, Clearance};
 use htpp_to_epub::utils::{build_client, fetch_with_retry};
 use neon::types::extract::Json;
 use serde::{Deserialize, Serialize};
@@ -142,17 +142,47 @@ where
         .collect())
 }
 
-fn sushiscan_net(clearance: Option<&Clearance>) -> Result<SushiScanNet, String> {
-    let url = MangaProvider::SushiScanNet.base_url();
-    match clearance {
-        Some(clearance) => SushiScanNet::with_clearance(url, clearance),
-        None => SushiScanNet::new(url),
-    }
-    .map_err(|err| err.to_string())
+/// How to reach a provider: an optional Cloudflare clearance and an optional proxy.
+/// Both only apply to the Cloudflare-fronted providers.
+#[derive(Deserialize, Default)]
+#[serde(rename_all = "camelCase")]
+struct ProviderAccess {
+    clearance: Option<Clearance>,
+    proxy_url: Option<String>,
 }
 
-fn anime_sama(clearance: Option<&Clearance>) -> Result<AnimeSama, String> {
-    AnimeSama::new(MangaProvider::AnimeSama.base_url(), clearance).map_err(|err| err.to_string())
+impl ProviderAccess {
+    fn from_js(access: Option<Json<ProviderAccess>>) -> ProviderAccess {
+        access.map(|Json(access)| access).unwrap_or_default()
+    }
+
+    /// The proxy is only wired into the Cloudflare sessions: refuse it elsewhere
+    /// rather than silently sending the traffic from the host's own IP.
+    fn check(&self, provider: MangaProvider) -> Result<(), String> {
+        if self.proxy_url.is_some() && !provider.is_cloudflare_fronted() {
+            return Err("a proxy is only supported for SUSHISCAN_NET and ANIME_SAMA".to_string());
+        }
+        Ok(())
+    }
+
+    fn session(&self, provider: MangaProvider) -> Result<std::sync::Arc<CfSession>, String> {
+        CfSession::with_options(
+            provider.base_url(),
+            self.clearance.as_ref(),
+            self.proxy_url.as_deref(),
+        )
+        .map_err(|err| err.to_string())
+    }
+}
+
+fn sushiscan_net(access: &ProviderAccess) -> Result<SushiScanNet, String> {
+    let provider = MangaProvider::SushiScanNet;
+    Ok(SushiScanNet::with_session(provider.base_url(), access.session(provider)?))
+}
+
+fn anime_sama(access: &ProviderAccess) -> Result<AnimeSama, String> {
+    let provider = MangaProvider::AnimeSama;
+    Ok(AnimeSama::with_session(provider.base_url(), access.session(provider)?))
 }
 
 /// Runs `job` to completion on a current-thread Tokio runtime owned by a dedicated
@@ -184,26 +214,26 @@ where
 
 /// Récupère tous les chapitres d'un manga chez un provider donné.
 /// `provider` attend "SUSHISCAN", "SUSHISCAN_NET", "MANGA_ORIGINS" ou "ANIME_SAMA".
-/// `clearance` n'est utilisée que par les providers derrière Cloudflare, et seulement
-/// quand Cloudflare challenge (sinon `null`).
+/// `access` (`{ clearance?, proxyUrl? }` ou `null`) ne concerne que les providers
+/// derrière Cloudflare : clearance quand Cloudflare challenge, proxy quand l'origine
+/// bannit l'IP du serveur.
 #[neon::export]
 async fn get_manga_chapters(
     slug: String,
     provider: String,
-    clearance: Option<Json<Clearance>>,
+    access: Option<Json<ProviderAccess>>,
 ) -> Result<Json<Vec<MangaChapter>>, String> {
     let provider = MangaProvider::parse(&provider)?;
-    let clearance = clearance.map(|Json(c)| c);
+    let access = ProviderAccess::from_js(access);
+    access.check(provider)?;
 
     run_on_own_thread("manga chapters fetch", move || async move {
         let url = provider.base_url();
         match provider {
             MangaProvider::SushiScan => chapters_of(&SushiScan::new(url), &slug).await,
             MangaProvider::MangaOrigins => chapters_of(&MangaOrigins::new(url), &slug).await,
-            MangaProvider::SushiScanNet => {
-                chapters_of(&sushiscan_net(clearance.as_ref())?, &slug).await
-            }
-            MangaProvider::AnimeSama => chapters_of(&anime_sama(clearance.as_ref())?, &slug).await,
+            MangaProvider::SushiScanNet => chapters_of(&sushiscan_net(&access)?, &slug).await,
+            MangaProvider::AnimeSama => chapters_of(&anime_sama(&access)?, &slug).await,
         }
     })
     .await
@@ -212,23 +242,24 @@ async fn get_manga_chapters(
 
 /// Récupère le catalogue complet d'un provider (pagination complète, peut prendre
 /// plusieurs minutes). À n'appeler que depuis un job planifié, jamais depuis une
-/// requête HTTP synchrone. Mêmes valeurs de `provider`/`clearance` que
+/// requête HTTP synchrone. Mêmes valeurs de `provider`/`access` que
 /// `get_manga_chapters`.
 #[neon::export]
 async fn get_provider_catalog(
     provider: String,
-    clearance: Option<Json<Clearance>>,
+    access: Option<Json<ProviderAccess>>,
 ) -> Result<Json<Vec<MangaCatalogEntry>>, String> {
     let provider = MangaProvider::parse(&provider)?;
-    let clearance = clearance.map(|Json(c)| c);
+    let access = ProviderAccess::from_js(access);
+    access.check(provider)?;
 
     run_on_own_thread("provider catalog fetch", move || async move {
         let url = provider.base_url();
         match provider {
             MangaProvider::SushiScan => catalog_of(&SushiScan::new(url)).await,
             MangaProvider::MangaOrigins => catalog_of(&MangaOrigins::new(url)).await,
-            MangaProvider::SushiScanNet => catalog_of(&sushiscan_net(clearance.as_ref())?).await,
-            MangaProvider::AnimeSama => catalog_of(&anime_sama(clearance.as_ref())?).await,
+            MangaProvider::SushiScanNet => catalog_of(&sushiscan_net(&access)?).await,
+            MangaProvider::AnimeSama => catalog_of(&anime_sama(&access)?).await,
         }
     })
     .await

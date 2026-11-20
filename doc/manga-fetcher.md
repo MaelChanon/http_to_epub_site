@@ -26,6 +26,12 @@ interface Clearance {
   userAgent: string; // the exact UA the cookie was issued to
 }
 
+// Only for SUSHISCAN_NET / ANIME_SAMA (a proxy for another provider is an error)
+interface ProviderAccess {
+  clearance?: Clearance; // while Cloudflare is challenging
+  proxyUrl?: string;     // HTTP(S) proxy for every request, if the origin bans our IP
+}
+
 interface MangaChapter {
   chapterNumber: number;
   pages: string[]; // page image URLs, in reading order
@@ -38,8 +44,8 @@ interface MangaCatalogEntry {
   chapterCount: number;
 }
 
-function getMangaChapters(slug: string, provider: MangaProvider, clearance?: Clearance): Promise<MangaChapter[]>;
-function getProviderCatalog(provider: MangaProvider, clearance?: Clearance): Promise<MangaCatalogEntry[]>;
+function getMangaChapters(slug: string, provider: MangaProvider, access?: ProviderAccess): Promise<MangaChapter[]>;
+function getProviderCatalog(provider: MangaProvider, access?: ProviderAccess): Promise<MangaCatalogEntry[]>;
 function getPageRequestHeaders(provider: MangaProvider, clearance?: Clearance): Record<string, string>; // sync
 function buildEpub(input: BuildEpubInput): Promise<BuildEpubOutput>;
 ```

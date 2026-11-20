@@ -13,6 +13,7 @@ import {
 	getPageRequestHeaders as nativeGetPageRequestHeaders,
 	getProviderCatalog as nativeGetProviderCatalog,
 } from "manga-fetcher";
+import { ProviderProxyService } from "../providerProxy/providerProxy.service.js";
 
 export type {
 	BuildEpubInput,
@@ -41,13 +42,23 @@ export class MangaFetcherService extends Effect.Service<MangaFetcherService>()(
 	"api/MangaFetcherService",
 	{
 		effect: Effect.gen(function* () {
+			const providerProxy = yield* ProviderProxyService;
+
+			// The provider's proxy, if it needs one, is applied here so that no
+			// caller can forget it.
+			const access = (provider: MangaProvider, clearance?: Clearance) => ({
+				clearance,
+				proxyUrl: providerProxy.proxyUrl(provider),
+			});
+
 			function getMangaChapters(
 				slug: string,
 				provider: MangaProvider,
 				clearance?: Clearance,
 			) {
 				return Effect.tryPromise({
-					try: () => nativeGetMangaChapters(slug, provider, clearance),
+					try: () =>
+						nativeGetMangaChapters(slug, provider, access(provider, clearance)),
 					catch: (e) =>
 						new MangaFetcherFetchFailed({
 							message: e instanceof Error ? e.message : String(e),
@@ -60,7 +71,8 @@ export class MangaFetcherService extends Effect.Service<MangaFetcherService>()(
 				clearance?: Clearance,
 			) {
 				return Effect.tryPromise({
-					try: () => nativeGetProviderCatalog(provider, clearance),
+					try: () =>
+						nativeGetProviderCatalog(provider, access(provider, clearance)),
 					catch: (e) =>
 						new MangaFetcherFetchFailed({
 							message: e instanceof Error ? e.message : String(e),
@@ -100,5 +112,6 @@ export class MangaFetcherService extends Effect.Service<MangaFetcherService>()(
 				buildEpub,
 			} as const;
 		}),
+		dependencies: [ProviderProxyService.Default],
 	},
 ) {}

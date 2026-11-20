@@ -231,14 +231,18 @@ export function makeS3Operations(
 
 	// `headers` are sent to `url`'s host only: pass a provider's page headers (which
 	// may carry a session cookie) for that provider's images, never as a default.
+	// `client` overrides the default one, e.g. to go through the provider's proxy.
 	function fetchAndUpload(
 		key: string,
 		url: string,
-		headers?: Record<string, string>,
+		options: {
+			headers?: Record<string, string>;
+			client?: HttpClient.HttpClient;
+		} = {},
 	) {
 		return Effect.gen(function* () {
-			const response = yield* httpClient
-				.get(url, { headers })
+			const response = yield* (options.client ?? httpClient)
+				.get(url, { headers: options.headers })
 				.pipe(
 					Effect.mapError(
 						(error) => new ImageFetchFailed({ url, message: error.message }),

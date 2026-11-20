@@ -8,6 +8,7 @@ import { EpubService } from "./domain/epub/epub.service.js";
 import { MangaRepository } from "./domain/manga/manga.repository.js";
 import { MangaService } from "./domain/manga/manga.service.js";
 import { MangaProviderService } from "./domain/mangaProvider/mangaProvider.service.js";
+import { ProviderProxyService } from "./domain/providerProxy/providerProxy.service.js";
 import { S3Service } from "./domain/s3/s3.service.js";
 import { ProviderRepository } from "./domain/scanProvider/provider.repository.js";
 import { ProviderCatalogService } from "./domain/scanProvider/providerCatalog.service.js";
@@ -44,6 +45,7 @@ const ServicesLive = Layer.mergeAll(
 	EpubService.Default,
 	MagicLinkService.Default,
 	CloudflareService.Default,
+	ProviderProxyService.Default,
 );
 
 const WorkersLive = Layer.mergeAll(

@@ -36,6 +36,7 @@ class AppConfig {
 		readonly passwordResetTtlSeconds: number,
 		readonly flaresolverrUrl: string,
 		readonly cfClearanceTtlSeconds: number,
+		readonly animeSamaProxyUrl: string,
 	) {}
 }
 export const appConfig = Config.map(
@@ -91,6 +92,8 @@ export const appConfig = Config.map(
 		Config.number("CF_CLEARANCE_TTL_SECONDS").pipe(
 			Config.withDefault(TWENTY_FIVE_MINUTES_IN_SECONDS),
 		),
+		// Empty = direct. Needed when anime-sama bans the server's IP.
+		Config.string("ANIME_SAMA_PROXY_URL").pipe(Config.withDefault("")),
 	]),
 	([
 		host,
@@ -115,6 +118,7 @@ export const appConfig = Config.map(
 		passwordResetTtlSeconds,
 		flaresolverrUrl,
 		cfClearanceTtlSeconds,
+		animeSamaProxyUrl,
 	]) =>
 		new AppConfig(
 			host,
@@ -142,5 +146,6 @@ export const appConfig = Config.map(
 			passwordResetTtlSeconds,
 			flaresolverrUrl.trim(),
 			cfClearanceTtlSeconds,
+			animeSamaProxyUrl.trim(),
 		),
 );
