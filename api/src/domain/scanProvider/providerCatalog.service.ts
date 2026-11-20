@@ -21,6 +21,9 @@ export class ProviderCatalogService extends Effect.Service<ProviderCatalogServic
 			const providerRepo = yield* ProviderRepository;
 			const cloudflare = yield* CloudflareService;
 
+			// Returns how many entries the scrape found; 0 leaves the stored
+			// catalog untouched (an empty scrape is far more likely a broken
+			// listing page than a site that emptied its catalog).
 			function refreshCatalog(provider: MangaProvider) {
 				return Effect.gen(function* () {
 					const providerId = yield* providerRepo.ensureProvider(provider);
@@ -31,7 +34,7 @@ export class ProviderCatalogService extends Effect.Service<ProviderCatalogServic
 					);
 
 					if (entries.length === 0) {
-						return;
+						return 0;
 					}
 
 					yield* db
@@ -53,6 +56,7 @@ export class ProviderCatalogService extends Effect.Service<ProviderCatalogServic
 							},
 						})
 						.pipe(Effect.mapError(toSQLError));
+					return entries.length;
 				});
 			}
 

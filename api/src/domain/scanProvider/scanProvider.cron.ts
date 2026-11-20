@@ -1,9 +1,11 @@
-import { Effect, Layer, Schedule } from "effect";
+import { Cause, Effect, Layer, Schedule } from "effect";
 import { appConfig } from "../../config.js";
 import { ProviderRepository } from "./provider.repository.js";
 import { ProviderCatalogService } from "./providerCatalog.service.js";
 import { ScanEventsService } from "./scanEvents.service.js";
 import { PROVIDERS, ScanEvent } from "./scanProvider.domain.js";
+
+const CATALOG_REFRESH_TIMEOUT = "45 minutes";
 
 const providerCatalogCronLoop = Effect.gen(function* () {
 	const providerCatalog = yield* ProviderCatalogService;
@@ -13,21 +15,31 @@ const providerCatalogCronLoop = Effect.gen(function* () {
 		provider,
 		(provider) =>
 			providerCatalog.refreshCatalog(provider).pipe(
+				Effect.timeoutFail({
+					duration: CATALOG_REFRESH_TIMEOUT,
+					onTimeout: () => `timed out after ${CATALOG_REFRESH_TIMEOUT}`,
+				}),
 				Effect.retry(
 					Schedule.exponential("1 seconds").pipe(
 						Schedule.compose(Schedule.recurs(3)),
 					),
 				),
-				Effect.tap(() =>
-					Effect.logInfo(`provider catalog refreshed: ${provider}`),
+				Effect.tap((count) =>
+					count === 0
+						? Effect.logWarning(
+								`provider catalog for ${provider} came back empty, keeping the stored one (listing page broken?)`,
+							)
+						: Effect.logInfo(
+								`provider catalog refreshed: ${provider} (${count} mangas)`,
+							),
 				),
-				Effect.catchAll((err) =>
+				Effect.catchAllCause((cause) =>
 					Effect.logError(
-						`provider catalog refresh failed for ${provider}: ${err}`,
+						`provider catalog refresh failed for ${provider}: ${Cause.pretty(cause)}`,
 					),
 				),
 			),
-		{ concurrency: 1 },
+		{ concurrency: "unbounded" },
 	);
 }).pipe(Effect.repeat(Schedule.cron("0 3 * * *")));
 
