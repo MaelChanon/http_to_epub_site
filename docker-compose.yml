@@ -1,3 +1,5 @@
+name: http_to_epub_site
+
 services:
   postgres:
     image: postgres:16-alpine
