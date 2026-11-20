@@ -10,7 +10,6 @@ import {
 import { Upload } from "@aws-sdk/lib-storage";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import type { HttpClient } from "@effect/platform";
-import { HttpClientResponse } from "@effect/platform";
 import { Data, Effect, Schedule } from "effect";
 
 export class S3ObjectNotFound extends Data.TaggedError("S3ObjectNotFound")<{
@@ -33,10 +32,31 @@ export class S3Error extends Data.TaggedError("S3Error")<{
 export class ImageFetchFailed extends Data.TaggedError("ImageFetchFailed")<{
 	readonly url: string;
 	readonly message: string;
+	/** A Cloudflare challenge, which only a fresh clearance can get past. */
+	readonly cloudflareChallenge?: boolean;
 }> {
 	get internalMessage() {
 		return `Failed to fetch image at ${this.url}: ${this.message}`;
 	}
+}
+
+/**
+ * Tells a Cloudflare challenge apart from an ordinary 403 (e.g. hotlink
+ * protection, which a clearance would never fix): Cloudflare tags challenges
+ * with `cf-mitigated`; older interstitials are a 503 from `server: cloudflare`.
+ * Same rule as `is_challenge` in the http_to_epub crate.
+ */
+function isCloudflareChallenge(
+	status: number,
+	headers: Readonly<Record<string, string>>,
+) {
+	if (status !== 403 && status !== 503) {
+		return false;
+	}
+	return (
+		"cf-mitigated" in headers ||
+		(status === 503 && headers.server?.toLowerCase() === "cloudflare")
+	);
 }
 
 const s3RetrySchedule = Schedule.exponential("200 millis").pipe(
@@ -209,14 +229,33 @@ export function makeS3Operations(
 		});
 	}
 
-	function fetchAndUpload(key: string, url: string) {
+	// `headers` are sent to `url`'s host only: pass a provider's page headers (which
+	// may carry a session cookie) for that provider's images, never as a default.
+	function fetchAndUpload(
+		key: string,
+		url: string,
+		headers?: Record<string, string>,
+	) {
 		return Effect.gen(function* () {
-			const response = yield* httpClient.get(url).pipe(
-				Effect.flatMap(HttpClientResponse.filterStatusOk),
-				Effect.mapError(
-					(error) => new ImageFetchFailed({ url, message: error.message }),
-				),
-			);
+			const response = yield* httpClient
+				.get(url, { headers })
+				.pipe(
+					Effect.mapError(
+						(error) => new ImageFetchFailed({ url, message: error.message }),
+					),
+				);
+			if (response.status < 200 || response.status >= 300) {
+				return yield* Effect.fail(
+					new ImageFetchFailed({
+						url,
+						message: `answered ${response.status}`,
+						cloudflareChallenge: isCloudflareChallenge(
+							response.status,
+							response.headers,
+						),
+					}),
+				);
+			}
 
 			const bytes = yield* response.arrayBuffer.pipe(
 				Effect.mapError(

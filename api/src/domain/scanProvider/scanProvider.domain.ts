@@ -1,7 +1,10 @@
 import { Schema } from "effect";
-import { mangaProviderStatus } from "../../../drizzle/schema/providers.js";
+import {
+	mangaProviderStatus,
+	providerName,
+} from "../../../drizzle/schema/providers.js";
 
-export const MangaProviderName = Schema.Literal("SUSHISCAN", "MANGA_ORIGINS");
+export const MangaProviderName = Schema.Literal(...providerName.enumValues);
 export type MangaProviderName = typeof MangaProviderName.Type;
 
 export const MangaProviderStatus = Schema.Literal(
@@ -33,10 +36,7 @@ export function staleTransitionCutoff() {
 	return new Date(Date.now() - STALE_TRANSITION_MINUTES * 60 * 1000);
 }
 
-export const PROVIDERS: readonly MangaProviderName[] = [
-	"SUSHISCAN",
-	"MANGA_ORIGINS",
-];
+export const PROVIDERS: readonly MangaProviderName[] = providerName.enumValues;
 
 export class ProviderMangaSummary extends Schema.Class<ProviderMangaSummary>(
 	"ProviderMangaSummary",

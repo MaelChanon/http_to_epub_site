@@ -73,6 +73,7 @@ export const toHttpError = (
 					"MangaProviderResponseInvalid",
 					"ImageFetchFailed",
 					"MangaFetcherFetchFailed",
+					"ClearanceUnavailable",
 					() =>
 						Effect.fail(
 							new InternalServerError({ message: "Internal server error" }),

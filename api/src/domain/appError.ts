@@ -6,6 +6,7 @@ import type {
 	SessionStoreError,
 } from "../session/session.service.js";
 import type { ArchiveError } from "./archive/archive.service.js";
+import type { ClearanceUnavailable } from "./cloudflare/cloudflare.service.js";
 import type {
 	EpubChapterRangeEmpty,
 	EpubCoverInvalid,
@@ -61,6 +62,7 @@ export type DomainError =
 	| PageNotFound
 	| ImageFetchFailed
 	| MangaFetcherFetchFailed
+	| ClearanceUnavailable
 	| EpubNotFound
 	| EpubNotReady
 	| EpubChapterRangeEmpty

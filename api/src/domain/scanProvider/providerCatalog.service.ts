@@ -3,6 +3,7 @@ import { Effect, Option } from "effect";
 import { DB, DBLayer } from "../../../drizzle/db.js";
 import { providerMangas } from "../../../drizzle/schema/providers.js";
 import { toSQLError } from "../../../drizzle/schema/utils.js";
+import { CloudflareService } from "../cloudflare/cloudflare.service.js";
 import {
 	MangaFetcherService,
 	type MangaProvider,
@@ -18,11 +19,16 @@ export class ProviderCatalogService extends Effect.Service<ProviderCatalogServic
 			const db = yield* DB;
 			const mangaFetcher = yield* MangaFetcherService;
 			const providerRepo = yield* ProviderRepository;
+			const cloudflare = yield* CloudflareService;
 
 			function refreshCatalog(provider: MangaProvider) {
 				return Effect.gen(function* () {
 					const providerId = yield* providerRepo.ensureProvider(provider);
-					const entries = yield* mangaFetcher.getProviderCatalog(provider);
+					const cf = yield* cloudflare.session(provider);
+					const entries = yield* cf.run(
+						(clearance) => mangaFetcher.getProviderCatalog(provider, clearance),
+						(error) => error.needsClearance,
+					);
 
 					if (entries.length === 0) {
 						return;
@@ -87,6 +93,7 @@ export class ProviderCatalogService extends Effect.Service<ProviderCatalogServic
 			DBLayer,
 			MangaFetcherService.Default,
 			ProviderRepository.Default,
+			CloudflareService.Default,
 		],
 	},
 ) {}

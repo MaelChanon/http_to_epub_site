@@ -39,6 +39,13 @@ services:
       - ./garage.toml:/etc/garage.toml:ro
       - garage_meta:/var/lib/garage/meta
       - garage_data:/var/lib/garage/data
+  flaresolverr:
+    image: ghcr.io/flaresolverr/flaresolverr:v3.5.2
+    restart: unless-stopped
+    environment:
+      LOG_LEVEL: info
+    ports:
+      - "127.0.0.1:8191:8191"
 
 volumes:
   pg_data:

@@ -1,0 +1,2 @@
+ALTER TYPE "provider_name" ADD VALUE 'SUSHISCAN_NET';
+ALTER TYPE "provider_name" ADD VALUE 'ANIME_SAMA';

@@ -4,6 +4,7 @@ import { DB, DBLayer } from "../../../drizzle/db.js";
 import { chapters, pages } from "../../../drizzle/schema/providers.js";
 import { SQLError, toSQLError } from "../../../drizzle/schema/utils.js";
 import { ArchiveService } from "../archive/archive.service.js";
+import { CloudflareService } from "../cloudflare/cloudflare.service.js";
 import type { MangaDbId } from "../manga/manga.domain.js";
 import {
 	MangaFetcherService,
@@ -82,6 +83,7 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 			const mangaFetcher = yield* MangaFetcherService;
 			const providerRepo = yield* ProviderRepository;
 			const scanEvents = yield* ScanEventsService;
+			const cloudflare = yield* CloudflareService;
 
 			function upsertChapterRow(
 				mangaDbId: MangaDbId,
@@ -111,10 +113,12 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 				return Effect.succeed(`${mangaDbId}/archives/${provider}.zip`);
 			}
 
-			function processChapter(
+			// `fetchPage` downloads `url` and stores it under `key`.
+			function processChapter<E>(
 				mangaDbId: MangaDbId,
 				providerId: string,
 				chapter: { chapterNumber: number; pages: readonly string[] },
+				fetchPage: (key: string, url: string) => Effect.Effect<unknown, E>,
 			) {
 				return Ref.make<string[]>([]).pipe(
 					Effect.flatMap((uploadedKeys) =>
@@ -123,7 +127,7 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 								chapter.pages,
 								(pageUrl, index) => {
 									const key = `${mangaDbId}/${chapter.chapterNumber}/${index + 1}.${new URL(pageUrl).pathname.split(".").pop() || "jpg"}`;
-									return s3.manga.fetchAndUpload(key, pageUrl).pipe(
+									return fetchPage(key, pageUrl).pipe(
 										Effect.tap(() =>
 											Ref.update(uploadedKeys, (keys) => [...keys, key]),
 										),
@@ -229,17 +233,38 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 
 					yield* Effect.forkDaemon(
 						Effect.gen(function* () {
-							const rawChapters = yield* mangaFetcher.getMangaChapters(
-								slug,
-								provider,
+							const cf = yield* cloudflare.session(provider);
+							const rawChapters = yield* cf.run(
+								(clearance) =>
+									mangaFetcher.getMangaChapters(slug, provider, clearance),
+								(error) => error.needsClearance,
 							);
+							const fetchPage = (key: string, url: string) =>
+								cf.run(
+									(clearance) =>
+										mangaFetcher
+											.getPageRequestHeaders(provider, clearance)
+											.pipe(
+												Effect.flatMap((headers) =>
+													s3.manga.fetchAndUpload(key, url, headers),
+												),
+											),
+									(error) =>
+										error._tag === "ImageFetchFailed" &&
+										error.cloudflareChallenge === true,
+								);
 							yield* Effect.forEach(
 								rawChapters,
 								(chapter) =>
-									processChapter(mangaDbId, providerId, {
-										...chapter,
-										chapterNumber: chapter.chapterNumber + 1,
-									}).pipe(
+									processChapter(
+										mangaDbId,
+										providerId,
+										{
+											...chapter,
+											chapterNumber: chapter.chapterNumber + 1,
+										},
+										fetchPage,
+									).pipe(
 										Effect.tap(() =>
 											providerRepo.touchMangaProviderLink(
 												mangaDbId,
@@ -649,6 +674,7 @@ export class ScanProviderService extends Effect.Service<ScanProviderService>()(
 			MangaFetcherService.Default,
 			ProviderRepository.Default,
 			ScanEventsService.Default,
+			CloudflareService.Default,
 		],
 	},
 ) {}

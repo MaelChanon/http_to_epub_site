@@ -10,9 +10,12 @@ import {
 } from "drizzle-orm/pg-core";
 import { mangas } from "./mangas.js";
 
+// Order matches the migrations (Postgres only appends enum values).
 export const providerName = pgEnum("provider_name", [
 	"SUSHISCAN",
 	"MANGA_ORIGINS",
+	"SUSHISCAN_NET",
+	"ANIME_SAMA",
 ]);
 
 export const mangaProviderStatus = pgEnum("manga_provider_status", [

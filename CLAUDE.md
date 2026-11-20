@@ -16,11 +16,11 @@ npm workspaces monorepo:
   Garage (S3-compatible).
 - `web/` — React 19 + Vite + TanStack Router/Query, Tailwind v4, shadcn/radix.
 - `manga-fetcher/` — Neon (Rust native addon) exposing scraping logic to
-  Node. Depends on a **sibling repo** `../http_to_epub` (a separate git repo,
-  not part of this one) — must be cloned alongside this repo for
-  `manga-fetcher` to build. See `doc/manga-fetcher.md`.
-- `http_to_epub/` — the sibling Rust CLI itself, present in this checkout as
-  a nested repo (own `.git`, not a submodule of this repo).
+  Node. Depends on the `http_to_epub` crate via `path = "../http_to_epub"`.
+  See `doc/manga-fetcher.md`.
+- `http_to_epub/`: the Rust scraping/EPUB crate, a **git submodule**
+  (`github.com/MaelChanon/http_to_epub`). Clone with `--recurse-submodules`
+  or run `git submodule update --init` before building `manga-fetcher`.
 
 `web` and `api` share the API contract via the `@workspace/api` workspace
 package (contract-first `HttpApi`) — see [Frontière @workspace/api](#the-workspaceapi-boundary-strict)
@@ -146,9 +146,16 @@ which turns every native-call `Promise` rejection into a domain error via
 entire catalog and can take minutes — only call it from a scheduled job
 (`scanProvider.cron.ts`), never from a synchronous request handler. Provider
 base URLs are hardcoded Rust-side; TS only picks `"SUSHISCAN" |
-"MANGA_ORIGINS"`. Rebuild it locally after changing `manga-fetcher/` or the
-sibling `http_to_epub/` Rust source — `index.node`/`lib/`/`target/` are
-gitignored and machine-specific. Full details: `doc/manga-fetcher.md`.
+"SUSHISCAN_NET" | "MANGA_ORIGINS" | "ANIME_SAMA"`. `SUSHISCAN_NET` and
+`ANIME_SAMA` sit behind Cloudflare: Node's own page
+downloads must send `getPageRequestHeaders(provider)` (Referer + browser UA),
+or sushiscan.net answers 403. When Cloudflare challenges, `CloudflareService`
+(`api/src/domain/cloudflare/`) gets a `cf_clearance` from the FlareSolverr
+compose service, shares it through Redis and retries once: always go through
+`cloudflare.session(provider).run(...)` for these calls
+(`doc/cloudflare-clearance.md`). Rebuild it locally after changing
+`manga-fetcher/` or the `http_to_epub/` submodule's Rust source (`index.node`/`lib/`/`target/` are
+gitignored and machine-specific). Full details: `doc/manga-fetcher.md`.
 
 ### S3 storage (Garage)
 
@@ -187,7 +194,7 @@ directly yet. Full details incl. one-time cluster bootstrap: `doc/s3.md`.
   types, variable types) — see `doc/good-pratices.md` for the exceptions
   (public function params, narrowing a literal, inference failing to
   `any`/`unknown`).
-- Full doc set lives in `doc/*.md` (English) — `auth.md`, `error.md`,
+- Full doc set lives in `doc/*.md` (English) — `auth.md`, `cloudflare-clearance.md`, `error.md`,
   `good-pratices.md`, `manga-fetcher.md`, `s3.md`,
   `shared-api-package.md`. Prefer linking/reading these over re-deriving the
   same architecture from source when working in these areas.

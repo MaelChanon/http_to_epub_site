@@ -5,6 +5,7 @@ import { Config } from "effect";
 const ONE_WEEK_IN_SECONDS = 60 * 60 * 24 * 7;
 const TWO_DAYS_IN_SECONDS = 60 * 60 * 24 * 2;
 const ONE_HOUR_IN_SECONDS = 60 * 60;
+const TWENTY_FIVE_MINUTES_IN_SECONDS = 25 * 60;
 const DEFAULT_EPUB_OUTPUT_DIR = path.join(
 	os.tmpdir(),
 	"http-to-epub-site",
@@ -33,6 +34,8 @@ class AppConfig {
 		readonly epubOutputDir: string,
 		readonly inviteTtlSeconds: number,
 		readonly passwordResetTtlSeconds: number,
+		readonly flaresolverrUrl: string,
+		readonly cfClearanceTtlSeconds: number,
 	) {}
 }
 export const appConfig = Config.map(
@@ -81,6 +84,13 @@ export const appConfig = Config.map(
 		Config.number("PASSWORD_RESET_TTL_SECONDS").pipe(
 			Config.withDefault(ONE_HOUR_IN_SECONDS),
 		),
+		// Empty disables the solver: a Cloudflare challenge then fails the sync.
+		Config.string("FLARESOLVERR_URL").pipe(
+			Config.withDefault("http://localhost:8191/v1"),
+		),
+		Config.number("CF_CLEARANCE_TTL_SECONDS").pipe(
+			Config.withDefault(TWENTY_FIVE_MINUTES_IN_SECONDS),
+		),
 	]),
 	([
 		host,
@@ -103,6 +113,8 @@ export const appConfig = Config.map(
 		epubOutputDir,
 		inviteTtlSeconds,
 		passwordResetTtlSeconds,
+		flaresolverrUrl,
+		cfClearanceTtlSeconds,
 	]) =>
 		new AppConfig(
 			host,
@@ -128,5 +140,7 @@ export const appConfig = Config.map(
 			epubOutputDir,
 			inviteTtlSeconds,
 			passwordResetTtlSeconds,
+			flaresolverrUrl.trim(),
+			cfClearanceTtlSeconds,
 		),
 );

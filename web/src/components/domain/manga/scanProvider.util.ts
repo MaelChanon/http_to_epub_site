@@ -15,8 +15,16 @@ export const ALL_PROVIDERS = MangaProviderName.literals;
 const PROVIDER_CATALOG_URL: Record<MangaProviderName, (tag: string) => string> =
 	{
 		SUSHISCAN: (tag) => `https://sushiscan.fr/catalogue/${tag}/`,
+		SUSHISCAN_NET: (tag) => `https://sushiscan.net/catalogue/${tag}/`,
 		MANGA_ORIGINS: (tag) => `https://mangas-origines.fr/oeuvre/${tag}/`,
+		ANIME_SAMA: (tag) =>
+			`https://anime-sama.to/catalogue/${animeSamaPath(tag)}/`,
 	};
+
+function animeSamaPath(tag: string) {
+	const version = /^(.+)\.(scan[^.]*)\.([^.]+)$/.exec(tag);
+	return version ? `${version[1]}/${version[2]}/${version[3]}` : tag;
+}
 
 export function providerCatalogUrl(
 	provider: MangaProviderName,

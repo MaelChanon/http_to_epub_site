@@ -1,6 +1,7 @@
 import { Layer } from "effect";
 import { DBLayer } from "../drizzle/db.js";
 import { AuthService } from "./auth/auth.service.js";
+import { CloudflareService } from "./domain/cloudflare/cloudflare.service.js";
 import { EpubCronLive } from "./domain/epub/epub.cron.js";
 import { EpubRepository } from "./domain/epub/epub.repository.js";
 import { EpubService } from "./domain/epub/epub.service.js";
@@ -42,6 +43,7 @@ const ServicesLive = Layer.mergeAll(
 	EpubRepository.Default,
 	EpubService.Default,
 	MagicLinkService.Default,
+	CloudflareService.Default,
 );
 
 const WorkersLive = Layer.mergeAll(
