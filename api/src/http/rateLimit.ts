@@ -52,7 +52,7 @@ export const rateLimit = HttpMiddleware.make((httpApp) =>
 
 		const redis = yield* RedisClient;
 		const client = Option.getOrElse(request.remoteAddress, () => "unknown");
-		const key = `ratelimit:${rule}:${client}`;
+		const key = `ratelimit:${rule.name}:${client}`;
 
 		const count = yield* Effect.tryPromise({
 			try: async () => {
