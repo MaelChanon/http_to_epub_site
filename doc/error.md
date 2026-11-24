@@ -22,14 +22,20 @@ HTTP code".
    - If the error has no fields, omit the generic rather than writing
      `<{}>` (rejected by biome): `Data.TaggedError("MissingSession")`.
 2. Add it to the `DomainError` union in `appError.ts`.
-3. Add a case in `toHttpError` (`error.ts`):
-   `Match.tag("XxxError", () => Effect.fail(new SomeHttpError({...})))`.
-4. In controllers (`*.controller.ts`), convert with
-   `.pipe(Effect.catchAll(toHttpError))`.
+3. Add a case in `httpErrorFor` (`error.ts`):
+   `Match.tag("XxxError", () => new SomeHttpError({...}))`.
+4. In controllers (`*.controller.ts`), convert with `Effect.catch(toHttpError)`,
+   usually as the second argument of the handler's `Effect.fn`
+   (`Effect.fn(function* ({ params }) { ... }, Effect.catch(toHttpError))`).
+   `toHttpError` lets an Http error the handler raised itself (e.g. a
+   `ForbiddenError` from `requireAdmin`) through unchanged.
+5. Endpoints declare the Http errors they can answer with through
+   `error: HttpErrors` (Effect 4 has no API-wide `addError`); each Http error
+   carries its status code (`{ httpApiStatus: 404 }`).
 
 ### Exception: middleware with an imposed failure type
 
-When an `HttpApiMiddleware.Tag` imposes a specific Http failure type (e.g. the
+When an `HttpApiMiddleware.Service` imposes a specific Http failure type (e.g. the
 `Authentication` middleware requires exactly `UnauthorizedError`), the service
 can do a final targeted conversion via
 `Effect.mapError(() => new UnauthorizedError(...))` at the end of the

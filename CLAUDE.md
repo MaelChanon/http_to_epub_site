@@ -11,8 +11,8 @@ into a downloadable archive/EPUB.
 
 npm workspaces monorepo:
 
-- `api/` — Fastify-less HTTP API built on `@effect/platform`'s `HttpApi`
-  (Effect-TS). Postgres via Drizzle, sessions in Redis, object storage via
+- `api/` — Fastify-less HTTP API built on Effect 4's `HttpApi`
+  (`effect/http-api`). Postgres via Drizzle, sessions in Redis, object storage via
   Garage (S3-compatible).
 - `web/` — React 19 + Vite + TanStack Router/Query, Tailwind v4, shadcn/radix.
 - `manga-fetcher/` — Neon (Rust native addon) exposing scraping logic to
@@ -64,15 +64,23 @@ manual setup is documented in `doc/s3.md`.
 
 ### API: Effect-TS layered services
 
-Everything in `api/src` is Effect-TS (`effect`, `@effect/platform`). Key shape:
+Everything in `api/src` is Effect-TS 4 (`effect`, with HTTP in `effect/http` /
+`effect/http-api` and SQL in `effect/sql`; there is no `@effect/platform`
+anymore). Key shape:
 
 - **`*.group.ts`** — declarative route definitions (`HttpApiGroup`,
   `HttpApiEndpoint`): path, params, payload/response schemas. No logic.
 - **`*.controller.ts`** — implements a group's handlers
   (`HttpApiBuilder.group(...)`), calling into services. Converts domain
-  errors to Http errors via `.pipe(Effect.catchAll(toHttpError))`.
+  errors to Http errors: each handler is an `Effect.fn(function* (...) {...},
+  Effect.catch(toHttpError))`, which also lets an Http error raised by the
+  handler itself through unchanged. Handlers are given with
+  `handlers.handleAll({ ... })`; each endpoint declares `error: HttpErrors`.
 - **`*.service.ts`** / **`*.repository.ts`** — business logic and DB/external
-  calls. `Effect.Service` classes, each exposing a `.Default` layer.
+  calls. A module-level `const make = Effect.gen(...)` (methods written with
+  `Effect.fn`) passed to a `Context.Service<X>()("id", { make })` class,
+  which exposes `static readonly Default = Layer.effect(this, make)` with its
+  dependencies provided.
 - **`*.domain.ts`** / **`*.schema.ts`** — `Schema.Class` shape definitions
   used by groups and services.
 - **`api/src/http/api.ts`** — assembles the `Api` (`HttpApi.make`) from all
@@ -109,7 +117,7 @@ Services and repositories never construct or fail with an Http error
 those exist only for the controller/middleware boundary. Services define
 domain errors (`Data.TaggedError`), added to the `DomainError` union in
 `appError.ts`; `toHttpError` (`error.ts`) maps each to its Http error, called
-in controllers via `.pipe(Effect.catchAll(toHttpError))`. One exception:
+in controllers via `Effect.catch(toHttpError)`. One exception:
 middleware with an imposed failure type (e.g. `Authentication` requires
 `UnauthorizedError`) may do a single targeted `Effect.mapError` at the very
 end of its pipeline. Full walkthrough + list of existing domain errors:

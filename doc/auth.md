@@ -127,16 +127,16 @@ absent key is a no-op.
 
 ## Protecting endpoints
 
-Built on `@effect/platform`'s `HttpApiMiddleware`, not Express-style
+Built on `effect/http-api`'s `HttpApiMiddleware`, not Express-style
 middleware.
 
 - `auth/auth.middleware.ts` declares:
-  - `CurrentUser`, a `Context.GenericTag<User>` used to inject the
+  - `CurrentUser`, a `Context.Service<CurrentUser, User>` used to inject the
     authenticated user.
   - `sessionCookie`, an `HttpApiSecurity.apiKey` reading the value from the
     `session` cookie.
   - `Authentication`, the middleware tag: `provides: CurrentUser`,
-    `failure: UnauthorizedError`, `security: { sessionCookie }`.
+    `error: UnauthorizedError`, `security: { sessionCookie }`.
 - `auth/auth.middleware.live.ts` (`AuthenticationLive`) implements the tag by
   calling `AuthService.authenticate(token)`.
 - `auth/auth.service.ts#authenticate` fails with `MissingSession` if there is
