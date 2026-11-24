@@ -9,8 +9,8 @@ import {
 } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
-import type { HttpClient } from "@effect/platform";
 import { Data, Effect, Schedule } from "effect";
+import type { HttpClient } from "effect/http";
 
 export class S3ObjectNotFound extends Data.TaggedError("S3ObjectNotFound")<{
 	readonly key: string;
@@ -48,7 +48,7 @@ export class ImageFetchFailed extends Data.TaggedError("ImageFetchFailed")<{
  */
 function isCloudflareChallenge(
 	status: number,
-	headers: Readonly<Record<string, string>>,
+	headers: Readonly<Record<string, string | undefined>>,
 ) {
 	if (status !== 403 && status !== 503) {
 		return false;
@@ -59,9 +59,7 @@ function isCloudflareChallenge(
 	);
 }
 
-const s3RetrySchedule = Schedule.exponential("200 millis").pipe(
-	Schedule.intersect(Schedule.recurs(4)),
-);
+const s3Retry = { schedule: Schedule.exponential("200 millis"), times: 4 };
 
 const toS3Error = (operation: string, key?: string) => (e: unknown) =>
 	new S3Error({
@@ -143,7 +141,7 @@ export function makeS3Operations(
 
 			const body = response.Body;
 			if (!body) {
-				return yield* Effect.fail(new S3ObjectNotFound({ key }));
+				return yield* new S3ObjectNotFound({ key });
 			}
 
 			return yield* Effect.tryPromise({
@@ -151,10 +149,7 @@ export function makeS3Operations(
 				catch: toS3Error(`download ${key}`, key),
 			});
 		}).pipe(
-			Effect.retry({
-				schedule: s3RetrySchedule,
-				while: (error) => error._tag === "S3Error",
-			}),
+			Effect.retry({ ...s3Retry, while: (error) => error._tag === "S3Error" }),
 		);
 	}
 
@@ -219,12 +214,10 @@ export function makeS3Operations(
 			yield* upload(key, body, contentType);
 			const stored = yield* download(key);
 			if (!Buffer.from(stored).equals(Buffer.from(body))) {
-				return yield* Effect.fail(
-					new S3Error({
-						operation: `verify ${key}`,
-						message: "uploaded object does not match the source bytes",
-					}),
-				);
+				return yield* new S3Error({
+					operation: `verify ${key}`,
+					message: "uploaded object does not match the source bytes",
+				});
 			}
 		});
 	}
@@ -249,16 +242,14 @@ export function makeS3Operations(
 					),
 				);
 			if (response.status < 200 || response.status >= 300) {
-				return yield* Effect.fail(
-					new ImageFetchFailed({
-						url,
-						message: `answered ${response.status}`,
-						cloudflareChallenge: isCloudflareChallenge(
-							response.status,
-							response.headers,
-						),
-					}),
-				);
+				return yield* new ImageFetchFailed({
+					url,
+					message: `answered ${response.status}`,
+					cloudflareChallenge: isCloudflareChallenge(
+						response.status,
+						response.headers,
+					),
+				});
 			}
 
 			const bytes = yield* response.arrayBuffer.pipe(
@@ -271,7 +262,7 @@ export function makeS3Operations(
 				key,
 				new Uint8Array(bytes),
 				response.headers["content-type"],
-			).pipe(Effect.retry(s3RetrySchedule));
+			).pipe(Effect.retry(s3Retry));
 		});
 	}
 

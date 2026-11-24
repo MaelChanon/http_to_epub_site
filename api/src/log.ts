@@ -1,11 +1,10 @@
-import { Config, Effect, Layer, Logger, LogLevel } from "effect";
+import { Config, Layer, Logger, References } from "effect";
 
-const logLevelConfig = Config.logLevel("LOG_LEVEL").pipe(
-	Config.withDefault(LogLevel.Info),
+const logLevelConfig = Config.LogLevel("LOG_LEVEL").pipe(
+	Config.withDefault("Info"),
 );
 
-export const LoggerLive = Layer.unwrapEffect(
-	Effect.map(logLevelConfig, (level) =>
-		Layer.merge(Logger.pretty, Logger.minimumLogLevel(level)),
-	),
+export const LoggerLive = Layer.mergeAll(
+	Logger.layer([Logger.consolePretty()]),
+	Layer.effect(References.MinimumLogLevel, logLevelConfig),
 );

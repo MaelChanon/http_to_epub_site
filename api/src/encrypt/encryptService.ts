@@ -1,5 +1,5 @@
 import * as bcrypt from "bcryptjs";
-import { Data, Effect } from "effect";
+import { Context, Data, Effect, Layer } from "effect";
 
 const SALT_ROUNDS = 12;
 
@@ -14,21 +14,21 @@ export class EncryptionFailed extends Data.TaggedError("EncryptionFailed")<{
 	}
 }
 
-export class EncryptService extends Effect.Service<EncryptService>()(
-	"api/EncryptService",
-	{
-		sync: () => ({
-			hash: (password: string) =>
-				Effect.tryPromise({
-					try: () => bcrypt.hash(password, SALT_ROUNDS),
-					catch: () => new EncryptionFailed({ message: "hashing faliled" }),
-				}),
+const hash = (password: string) =>
+	Effect.tryPromise({
+		try: () => bcrypt.hash(password, SALT_ROUNDS),
+		catch: () => new EncryptionFailed({ message: "hashing faliled" }),
+	});
 
-			verify: (password: string, hash: string) =>
-				Effect.tryPromise({
-					try: () => bcrypt.compare(password, hash),
-					catch: () => new EncryptionFailed({ message: "comparaison failed " }),
-				}),
-		}),
-	},
-) {}
+const verify = (password: string, hash: string) =>
+	Effect.tryPromise({
+		try: () => bcrypt.compare(password, hash),
+		catch: () => new EncryptionFailed({ message: "comparaison failed " }),
+	});
+
+export class EncryptService extends Context.Service<
+	EncryptService,
+	{ readonly hash: typeof hash; readonly verify: typeof verify }
+>()("api/EncryptService") {
+	static readonly Default = Layer.succeed(this, { hash, verify });
+}

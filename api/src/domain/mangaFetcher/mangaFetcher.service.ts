@@ -1,4 +1,4 @@
-import { Data, Effect } from "effect";
+import { Context, Data, Effect, Layer } from "effect";
 import {
 	type BuildEpubInput,
 	type BuildEpubOutput,
@@ -38,80 +38,66 @@ export class MangaFetcherFetchFailed extends Data.TaggedError(
 	}
 }
 
-export class MangaFetcherService extends Effect.Service<MangaFetcherService>()(
+const toFetchFailed = (e: unknown) =>
+	new MangaFetcherFetchFailed({
+		message: e instanceof Error ? e.message : String(e),
+	});
+
+/** Turns a native call's rejection into a `MangaFetcherFetchFailed`. */
+const native = <A>(call: () => Promise<A>) =>
+	Effect.tryPromise({ try: call, catch: toFetchFailed });
+
+const make = Effect.gen(function* () {
+	const providerProxy = yield* ProviderProxyService;
+
+	// The provider's proxy, if it needs one, is applied here so that no caller
+	// can forget it.
+	const access = (provider: MangaProvider, clearance?: Clearance) => ({
+		clearance,
+		proxyUrl: providerProxy.proxyUrl(provider),
+	});
+
+	const getMangaChapters = (
+		slug: string,
+		provider: MangaProvider,
+		clearance?: Clearance,
+	) =>
+		native(() =>
+			nativeGetMangaChapters(slug, provider, access(provider, clearance)),
+		);
+
+	const getProviderCatalog = (provider: MangaProvider, clearance?: Clearance) =>
+		native(() =>
+			nativeGetProviderCatalog(provider, access(provider, clearance)),
+		);
+
+	// Synchronous on the native side (no I/O), so `try` rather than `tryPromise`:
+	// it only throws on an unknown provider name.
+	const getPageRequestHeaders = (
+		provider: MangaProvider,
+		clearance?: Clearance,
+	) =>
+		Effect.try({
+			try: () => nativeGetPageRequestHeaders(provider, clearance),
+			catch: toFetchFailed,
+		});
+
+	const buildEpub = (input: BuildEpubInput) =>
+		native(() => nativeBuildEpub(input));
+
+	return {
+		getMangaChapters,
+		getProviderCatalog,
+		getPageRequestHeaders,
+		buildEpub,
+	};
+});
+
+export class MangaFetcherService extends Context.Service<MangaFetcherService>()(
 	"api/MangaFetcherService",
-	{
-		effect: Effect.gen(function* () {
-			const providerProxy = yield* ProviderProxyService;
-
-			// The provider's proxy, if it needs one, is applied here so that no
-			// caller can forget it.
-			const access = (provider: MangaProvider, clearance?: Clearance) => ({
-				clearance,
-				proxyUrl: providerProxy.proxyUrl(provider),
-			});
-
-			function getMangaChapters(
-				slug: string,
-				provider: MangaProvider,
-				clearance?: Clearance,
-			) {
-				return Effect.tryPromise({
-					try: () =>
-						nativeGetMangaChapters(slug, provider, access(provider, clearance)),
-					catch: (e) =>
-						new MangaFetcherFetchFailed({
-							message: e instanceof Error ? e.message : String(e),
-						}),
-				});
-			}
-
-			function getProviderCatalog(
-				provider: MangaProvider,
-				clearance?: Clearance,
-			) {
-				return Effect.tryPromise({
-					try: () =>
-						nativeGetProviderCatalog(provider, access(provider, clearance)),
-					catch: (e) =>
-						new MangaFetcherFetchFailed({
-							message: e instanceof Error ? e.message : String(e),
-						}),
-				});
-			}
-
-			// Synchronous on the native side (no I/O), so `try` rather than `tryPromise`:
-			// it only throws on an unknown provider name.
-			function getPageRequestHeaders(
-				provider: MangaProvider,
-				clearance?: Clearance,
-			) {
-				return Effect.try({
-					try: () => nativeGetPageRequestHeaders(provider, clearance),
-					catch: (e) =>
-						new MangaFetcherFetchFailed({
-							message: e instanceof Error ? e.message : String(e),
-						}),
-				});
-			}
-
-			function buildEpub(input: BuildEpubInput) {
-				return Effect.tryPromise({
-					try: () => nativeBuildEpub(input),
-					catch: (e) =>
-						new MangaFetcherFetchFailed({
-							message: e instanceof Error ? e.message : String(e),
-						}),
-				});
-			}
-
-			return {
-				getMangaChapters,
-				getProviderCatalog,
-				getPageRequestHeaders,
-				buildEpub,
-			} as const;
-		}),
-		dependencies: [ProviderProxyService.Default],
-	},
-) {}
+	{ make },
+) {
+	static readonly Default = Layer.effect(this, make).pipe(
+		Layer.provide(ProviderProxyService.Default),
+	);
+}
