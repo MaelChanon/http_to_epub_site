@@ -1,52 +1,46 @@
-import { HttpApiBuilder, HttpServerResponse } from "@effect/platform";
 import { Effect } from "effect";
+import { HttpServerResponse } from "effect/http";
+import { HttpApiBuilder } from "effect/http-api";
 import { CurrentUser } from "../../auth/auth.middleware.js";
 import { Api } from "../../http/api.js";
 import { toHttpError } from "../../http/error.js";
 import { MangaService } from "../manga/manga.service.js";
-import type { AniListId } from "../mangaProvider/mangaProvider.domain.js";
 import { EpubService } from "./epub.service.js";
 
-export const EpubApiGroupLive = HttpApiBuilder.group(Api, "epub", (handlers) =>
-	Effect.gen(function* () {
+export const EpubApiGroupLive = HttpApiBuilder.group(
+	Api,
+	"epub",
+	Effect.fn(function* (handlers) {
 		const epubService = yield* EpubService;
 		const mangaService = yield* MangaService;
 
-		function getManga(mangaId: AniListId) {
-			return Effect.flatMap(CurrentUser, (user) =>
-				mangaService.getManga(mangaId, user.id),
-			);
-		}
+		return handlers.handleAll({
+			createEpub: Effect.fn(function* ({ params, payload }) {
+				const user = yield* CurrentUser;
+				const manga = yield* mangaService.getManga(params.mangaId, user.id);
+				return yield* epubService.requestGeneration(
+					user,
+					manga.id,
+					params.provider,
+					payload,
+				);
+			}, Effect.catch(toHttpError)),
 
-		return handlers
-			.handle("createEpub", ({ path, payload }) =>
-				Effect.gen(function* () {
-					const user = yield* CurrentUser;
-					const manga = yield* getManga(path.mangaId).pipe(
-						Effect.catchAll(toHttpError),
-					);
-					return yield* epubService
-						.requestGeneration(user, manga.id, path.provider, payload)
-						.pipe(Effect.catchAll(toHttpError));
-				}),
-			)
-			.handle("listEpubs", () =>
-				Effect.flatMap(CurrentUser, (user) =>
-					epubService.listForUser(user.id),
-				).pipe(Effect.catchAll(toHttpError)),
-			)
-			.handle("downloadEpub", ({ path }) =>
-				Effect.flatMap(CurrentUser, (user) =>
-					epubService.getDownloadUrl(user, path.id),
-				).pipe(
-					Effect.map((url) => HttpServerResponse.redirect(url)),
-					Effect.catchAll(toHttpError),
-				),
-			)
-			.handle("deleteEpub", ({ path }) =>
-				Effect.flatMap(CurrentUser, (user) =>
-					epubService.deleteEpub(user, path.id),
-				).pipe(Effect.catchAll(toHttpError)),
-			);
+			listEpubs: Effect.fn(function* () {
+				const user = yield* CurrentUser;
+				return yield* epubService.listForUser(user.id);
+			}, Effect.catch(toHttpError)),
+
+			downloadEpub: Effect.fn(function* ({ params }) {
+				const user = yield* CurrentUser;
+				const url = yield* epubService.getDownloadUrl(user, params.id);
+				return HttpServerResponse.redirect(url);
+			}, Effect.catch(toHttpError)),
+
+			deleteEpub: Effect.fn(function* ({ params }) {
+				const user = yield* CurrentUser;
+				yield* epubService.deleteEpub(user, params.id);
+			}, Effect.catch(toHttpError)),
+		});
 	}),
 );

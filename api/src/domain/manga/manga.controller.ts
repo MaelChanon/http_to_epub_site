@@ -1,5 +1,6 @@
-import { HttpApiBuilder, HttpServerResponse } from "@effect/platform";
 import { Effect } from "effect";
+import { HttpServerResponse } from "effect/http";
+import { HttpApiBuilder } from "effect/http-api";
 import { CurrentUser } from "../../auth/auth.middleware.js";
 import { Api } from "../../http/api.js";
 import { toHttpError } from "../../http/error.js";
@@ -10,72 +11,60 @@ import { MangaService } from "./manga.service.js";
 export const MangaApiGroupLive = HttpApiBuilder.group(
 	Api,
 	"manga",
-	(handlers) =>
-		Effect.gen(function* () {
-			const mangaService = yield* MangaService;
-			const mangaProviderService = yield* MangaProviderService;
+	Effect.fn(function* (handlers) {
+		const mangaService = yield* MangaService;
+		const mangaProviderService = yield* MangaProviderService;
 
-			return handlers
-				.handle("listMangas", () =>
-					Effect.gen(function* () {
-						const user = yield* CurrentUser;
-						return yield* mangaService.listMangas(user.id);
-					}).pipe(Effect.catchAll(toHttpError)),
-				)
-				.handle("searchManga", ({ urlParams }) =>
-					Effect.gen(function* () {
-						yield* CurrentUser;
-						return yield* mangaProviderService.searchMedia(urlParams.q);
-					}).pipe(Effect.catchAll(toHttpError)),
-				)
-				.handle("getManga", ({ path }) =>
-					Effect.gen(function* () {
-						const user = yield* CurrentUser;
-						return yield* mangaService
-							.getManga(path.mangaId, user.id)
-							.pipe(
-								Effect.catchTag("MangaNotFound", () =>
-									mangaProviderService
-										.fetchById(path.mangaId)
-										.pipe(
-											Effect.flatMap((data) =>
-												mangaService.createManga(data, user.id),
-											),
-										),
+		return handlers.handleAll({
+			listMangas: Effect.fn(function* () {
+				const user = yield* CurrentUser;
+				return yield* mangaService.listMangas(user.id);
+			}, Effect.catch(toHttpError)),
+
+			searchManga: ({ query }) =>
+				mangaProviderService
+					.searchMedia(query.q)
+					.pipe(Effect.catch(toHttpError)),
+
+			// First visit of a manga: import it from AniList.
+			getManga: Effect.fn(function* ({ params }) {
+				const user = yield* CurrentUser;
+				return yield* mangaService
+					.getManga(params.mangaId, user.id)
+					.pipe(
+						Effect.catchTag("MangaNotFound", () =>
+							mangaProviderService
+								.fetchById(params.mangaId)
+								.pipe(
+									Effect.flatMap((data) =>
+										mangaService.createManga(data, user.id),
+									),
 								),
-							);
-					}).pipe(Effect.catchAll(toHttpError)),
-				)
-				.handle("getMangaCover", ({ path }) =>
-					Effect.gen(function* () {
-						yield* CurrentUser;
-						const url = yield* mangaService.getCoverPresignedUrl(path.mangaId);
-						return HttpServerResponse.redirect(url);
-					}).pipe(Effect.catchAll(toHttpError)),
-				)
-				.handle("refreshManga", ({ path }) =>
-					Effect.gen(function* () {
-						const user = yield* CurrentUser;
-						yield* requirePermission(user, "MANGA_METADATA_REFRESH");
-						const data = yield* mangaProviderService
-							.fetchById(path.mangaId)
-							.pipe(Effect.catchAll(toHttpError));
-						return yield* mangaService
-							.createManga(data, user.id)
-							.pipe(Effect.catchAll(toHttpError));
-					}),
-				)
-				.handle("addFavorite", ({ path }) =>
-					Effect.gen(function* () {
-						const user = yield* CurrentUser;
-						return yield* mangaService.addFavorite(path.mangaId, user.id);
-					}).pipe(Effect.catchAll(toHttpError)),
-				)
-				.handle("removeFavorite", ({ path }) =>
-					Effect.gen(function* () {
-						const user = yield* CurrentUser;
-						return yield* mangaService.removeFavorite(path.mangaId, user.id);
-					}).pipe(Effect.catchAll(toHttpError)),
-				);
-		}),
+						),
+					);
+			}, Effect.catch(toHttpError)),
+
+			getMangaCover: Effect.fn(function* ({ params }) {
+				const url = yield* mangaService.getCoverPresignedUrl(params.mangaId);
+				return HttpServerResponse.redirect(url);
+			}, Effect.catch(toHttpError)),
+
+			refreshManga: Effect.fn(function* ({ params }) {
+				const user = yield* CurrentUser;
+				yield* requirePermission(user, "MANGA_METADATA_REFRESH");
+				const data = yield* mangaProviderService.fetchById(params.mangaId);
+				return yield* mangaService.createManga(data, user.id);
+			}, Effect.catch(toHttpError)),
+
+			addFavorite: Effect.fn(function* ({ params }) {
+				const user = yield* CurrentUser;
+				return yield* mangaService.addFavorite(params.mangaId, user.id);
+			}, Effect.catch(toHttpError)),
+
+			removeFavorite: Effect.fn(function* ({ params }) {
+				const user = yield* CurrentUser;
+				return yield* mangaService.removeFavorite(params.mangaId, user.id);
+			}, Effect.catch(toHttpError)),
+		});
+	}),
 );

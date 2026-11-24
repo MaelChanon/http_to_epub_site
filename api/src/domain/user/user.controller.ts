@@ -1,5 +1,5 @@
-import { HttpApiBuilder } from "@effect/platform";
 import { Effect } from "effect";
+import { HttpApiBuilder } from "effect/http-api";
 import { CurrentUser, sessionCookie } from "../../auth/auth.middleware.js";
 import { appConfig } from "../../config.js";
 import { Api } from "../../http/api.js";
@@ -11,159 +11,111 @@ import {
 import { SessionService } from "../../session/session.service.js";
 import { MagicLinkService } from "./magicLink.service.js";
 import { requireAdmin } from "./permission.js";
+import type { UserId } from "./user.domain.js";
 import { MagicLink } from "./user.schema.js";
 import { UserService } from "./user.service.js";
 
 export const UsersApiGroupLive = HttpApiBuilder.group(
 	Api,
 	"users",
-	(handlers) =>
-		Effect.gen(function* () {
-			const userService = yield* UserService;
-			const sessionService = yield* SessionService;
-			const magicLinkService = yield* MagicLinkService;
-			const config = yield* appConfig;
-			return handlers
-				.handle("createUser", ({ payload }) =>
-					Effect.gen(function* () {
-						const total = yield* userService
-							.countUsers()
-							.pipe(Effect.catchAll(toHttpError));
+	Effect.fn(function* (handlers) {
+		const userService = yield* UserService;
+		const sessionService = yield* SessionService;
+		const magicLinkService = yield* MagicLinkService;
+		const config = yield* appConfig;
 
-						if (payload.token === undefined && total > 0) {
-							return yield* Effect.fail(
-								new ForbiddenError({
-									message:
-										"Registration is closed — ask an administrator for an invite link",
-								}),
-							);
-						}
+		/** Loads the user an admin acts on; fails with `refusal` if it is an administrator. */
+		const getEditableUser = Effect.fn(function* (id: UserId, refusal: string) {
+			yield* requireAdmin(yield* CurrentUser);
+			const target = yield* userService.getUserById(id);
+			if (target.isAdmin) {
+				return yield* new BadRequestError({ message: refusal });
+			}
+			return target;
+		});
 
-						const permissions =
-							payload.token === undefined
-								? []
-								: yield* magicLinkService
-										.peekInvite(payload.token)
-										.pipe(Effect.catchAll(toHttpError));
+		return handlers.handleAll({
+			createUser: Effect.fn(function* ({ payload }) {
+				const total = yield* userService.countUsers();
+				if (payload.token === undefined && total > 0) {
+					return yield* new ForbiddenError({
+						message:
+							"Registration is closed — ask an administrator for an invite link",
+					});
+				}
 
-						const emailTaken = yield* userService
-							.getUserByEmail(payload.email)
-							.pipe(
-								Effect.as(true),
-								Effect.catchTag("UserNotFound", () => Effect.succeed(false)),
-								Effect.catchAll(toHttpError),
-							);
-						if (emailTaken) {
-							return yield* Effect.fail(
-								new BadRequestError({ message: "User already exists" }),
-							);
-						}
+				const permissions =
+					payload.token === undefined
+						? []
+						: yield* magicLinkService.peekInvite(payload.token);
 
-						if (payload.token !== undefined) {
-							yield* magicLinkService
-								.consumeInvite(payload.token)
-								.pipe(Effect.catchAll(toHttpError));
-						}
+				const emailTaken = yield* userService
+					.getUserByEmail(payload.email)
+					.pipe(
+						Effect.as(true),
+						Effect.catchTag("UserNotFound", () => Effect.succeed(false)),
+					);
+				if (emailTaken) {
+					return yield* new BadRequestError({ message: "User already exists" });
+				}
 
-						const user = yield* userService
-							.createUser({
-								pseudo: payload.pseudo,
-								email: payload.email,
-								password: payload.password,
-								permissions,
-								isAdmin: total === 0,
-							})
-							.pipe(Effect.catchAll(toHttpError));
+				if (payload.token !== undefined) {
+					yield* magicLinkService.consumeInvite(payload.token);
+				}
 
-						const token = yield* sessionService
-							.createToken(user.id)
-							.pipe(Effect.catchAll(toHttpError));
-						yield* HttpApiBuilder.securitySetCookie(sessionCookie, token, {
-							path: "/",
-							sameSite: "lax",
-							secure: config.cookieSecure,
-							maxAge: sessionService.ttl,
-						});
+				const user = yield* userService.createUser({
+					pseudo: payload.pseudo,
+					email: payload.email,
+					password: payload.password,
+					permissions,
+					isAdmin: total === 0,
+				});
 
-						return user;
-					}),
-				)
-				.handle("listUsers", () =>
-					Effect.gen(function* () {
-						const user = yield* CurrentUser;
-						yield* requireAdmin(user);
-						return yield* userService
-							.listUsers()
-							.pipe(Effect.catchAll(toHttpError));
-					}),
-				)
-				.handle("createInvite", ({ payload }) =>
-					Effect.gen(function* () {
-						const user = yield* CurrentUser;
-						yield* requireAdmin(user);
-						const link = yield* magicLinkService
-							.createInvite(payload.permissions)
-							.pipe(Effect.catchAll(toHttpError));
-						return new MagicLink(link);
-					}),
-				)
-				.handle("createPasswordReset", ({ path }) =>
-					Effect.gen(function* () {
-						const user = yield* CurrentUser;
-						yield* requireAdmin(user);
-						const target = yield* userService
-							.getUserById(path.id)
-							.pipe(Effect.catchAll(toHttpError));
-						if (target.isAdmin) {
-							return yield* Effect.fail(
-								new BadRequestError({
-									message: "Cannot reset an administrator's password",
-								}),
-							);
-						}
-						const link = yield* magicLinkService
-							.createReset(target.id)
-							.pipe(Effect.catchAll(toHttpError));
-						return new MagicLink(link);
-					}),
-				)
-				.handle("updateUserPermissions", ({ path, payload }) =>
-					Effect.gen(function* () {
-						const user = yield* CurrentUser;
-						yield* requireAdmin(user);
-						const target = yield* userService
-							.getUserById(path.id)
-							.pipe(Effect.catchAll(toHttpError));
-						if (target.isAdmin) {
-							return yield* Effect.fail(
-								new BadRequestError({
-									message: "Cannot edit an administrator's permissions",
-								}),
-							);
-						}
-						return yield* userService
-							.updateUserPermissions(path.id, payload.permissions)
-							.pipe(Effect.catchAll(toHttpError));
-					}),
-				)
-				.handle("deleteUser", ({ path }) =>
-					Effect.gen(function* () {
-						const user = yield* CurrentUser;
-						yield* requireAdmin(user);
-						const target = yield* userService
-							.getUserById(path.id)
-							.pipe(Effect.catchAll(toHttpError));
-						if (target.isAdmin) {
-							return yield* Effect.fail(
-								new BadRequestError({
-									message: "Cannot delete an administrator",
-								}),
-							);
-						}
-						yield* userService
-							.deleteUser(path.id)
-							.pipe(Effect.catchAll(toHttpError));
-					}),
+				const token = yield* sessionService.createToken(user.id);
+				yield* HttpApiBuilder.securitySetCookie(sessionCookie, token, {
+					path: "/",
+					sameSite: "lax",
+					secure: config.cookieSecure,
+					maxAge: sessionService.ttl,
+				});
+				return user;
+			}, Effect.catch(toHttpError)),
+
+			listUsers: Effect.fn(function* () {
+				yield* requireAdmin(yield* CurrentUser);
+				return yield* userService.listUsers();
+			}, Effect.catch(toHttpError)),
+
+			createInvite: Effect.fn(function* ({ payload }) {
+				yield* requireAdmin(yield* CurrentUser);
+				const link = yield* magicLinkService.createInvite(payload.permissions);
+				return new MagicLink(link);
+			}, Effect.catch(toHttpError)),
+
+			createPasswordReset: Effect.fn(function* ({ params }) {
+				const target = yield* getEditableUser(
+					params.id,
+					"Cannot reset an administrator's password",
 				);
-		}),
+				const link = yield* magicLinkService.createReset(target.id);
+				return new MagicLink(link);
+			}, Effect.catch(toHttpError)),
+
+			updateUserPermissions: Effect.fn(function* ({ params, payload }) {
+				yield* getEditableUser(
+					params.id,
+					"Cannot edit an administrator's permissions",
+				);
+				return yield* userService.updateUserPermissions(
+					params.id,
+					payload.permissions,
+				);
+			}, Effect.catch(toHttpError)),
+
+			deleteUser: Effect.fn(function* ({ params }) {
+				yield* getEditableUser(params.id, "Cannot delete an administrator");
+				yield* userService.deleteUser(params.id);
+			}, Effect.catch(toHttpError)),
+		});
+	}),
 );

@@ -1,5 +1,6 @@
-import { HttpApiBuilder, HttpServerResponse } from "@effect/platform";
 import { Effect } from "effect";
+import { HttpServerResponse } from "effect/http";
+import { HttpApiBuilder } from "effect/http-api";
 import { CurrentUser } from "../../auth/auth.middleware.js";
 import { Api, ProviderArchive } from "../../http/api.js";
 import { toHttpError } from "../../http/error.js";
@@ -13,117 +14,95 @@ import { ScanProviderService } from "./scanProvider.service.js";
 export const ScanProviderApiGroupLive = HttpApiBuilder.group(
 	Api,
 	"scanProvider",
-	(handlers) =>
-		Effect.gen(function* () {
-			const mangaService = yield* MangaService;
-			const scanProviderService = yield* ScanProviderService;
-			const providerCatalogService = yield* ProviderCatalogService;
-			const s3 = yield* S3Service;
+	Effect.fn(function* (handlers) {
+		const mangaService = yield* MangaService;
+		const scanProviderService = yield* ScanProviderService;
+		const providerCatalogService = yield* ProviderCatalogService;
+		const s3 = yield* S3Service;
 
-			function getManga(mangaId: AniListId) {
-				return Effect.flatMap(CurrentUser, (user) =>
-					mangaService.getManga(mangaId, user.id),
-				);
-			}
+		const getManga = Effect.fn(function* (mangaId: AniListId) {
+			const user = yield* CurrentUser;
+			return yield* mangaService.getManga(mangaId, user.id);
+		});
 
-			return handlers
-				.handle("syncMangaChapters", ({ path, payload }) =>
-					Effect.gen(function* () {
-						const user = yield* CurrentUser;
-						const manga = yield* getManga(path.mangaId).pipe(
-							Effect.catchAll(toHttpError),
-						);
-						const alreadyLinked = yield* scanProviderService
-							.hasMangaProviderLink(manga.id, payload.provider)
-							.pipe(Effect.catchAll(toHttpError));
-						yield* requirePermission(
-							user,
-							alreadyLinked ? "MANGA_PROVIDER_REFRESH" : "MANGA_PROVIDER_ADD",
-						);
-						yield* scanProviderService
-							.syncMangaChapters(
-								manga.id,
-								payload.slug,
-								payload.provider,
-								!alreadyLinked,
-							)
-							.pipe(Effect.catchAll(toHttpError));
-					}),
-				)
-				.handle("getMangaProviders", ({ path }) =>
-					getManga(path.mangaId).pipe(
-						Effect.flatMap((manga) =>
-							scanProviderService.listMangaProviders(manga.id),
-						),
-						Effect.catchAll(toHttpError),
-					),
-				)
-				.handle("getMangaProviderChapters", ({ path }) =>
-					getManga(path.mangaId).pipe(
-						Effect.flatMap((manga) =>
-							scanProviderService.listChapterNumbers(manga.id, path.provider),
-						),
-						Effect.catchAll(toHttpError),
-					),
-				)
-				.handle("getMangaProviderChapterPages", ({ path }) =>
-					getManga(path.mangaId).pipe(
-						Effect.flatMap((manga) =>
-							scanProviderService.getChapterPages(
-								manga.id,
-								path.mangaId,
-								path.provider,
-								path.number,
-							),
-						),
-						Effect.catchAll(toHttpError),
-					),
-				)
-				.handle("getMangaProviderChapterPage", ({ path }) =>
-					getManga(path.mangaId).pipe(
-						Effect.flatMap((manga) =>
-							scanProviderService.getChapterPagePresignedUrl(
-								manga.id,
-								path.provider,
-								path.number,
-								path.pageNumber,
-							),
-						),
-						Effect.map((url) => HttpServerResponse.redirect(url)),
-						Effect.catchAll(toHttpError),
-					),
-				)
-				.handle("searchProviderCatalog", ({ path, urlParams }) =>
-					providerCatalogService
-						.search(path.provider, urlParams.q)
-						.pipe(Effect.catchAll(toHttpError)),
-				)
-				.handle("deleteMangaProviderChapters", ({ path }) =>
-					Effect.gen(function* () {
-						const user = yield* CurrentUser;
-						yield* requirePermission(user, "MANGA_PROVIDER_DELETE");
-						const manga = yield* getManga(path.mangaId).pipe(
-							Effect.catchAll(toHttpError),
-						);
-						yield* scanProviderService
-							.deleteMangaProviderChapters(manga.id, path.provider)
-							.pipe(Effect.catchAll(toHttpError));
-					}),
-				)
-				.handle("getMangaProviderArchive", ({ path }) =>
-					getManga(path.mangaId).pipe(
-						Effect.flatMap((manga) =>
-							Effect.gen(function* () {
-								const key = yield* scanProviderService.getProviderArchive(
-									manga.id,
-									path.provider,
-								);
-								const url = yield* s3.manga.getUrl(key);
-								return new ProviderArchive({ url });
-							}),
-						),
-						Effect.catchAll(toHttpError),
-					),
+		return handlers.handleAll({
+			syncMangaChapters: Effect.fn(function* ({ params, payload }) {
+				const user = yield* CurrentUser;
+				const manga = yield* getManga(params.mangaId);
+				const alreadyLinked = yield* scanProviderService.hasMangaProviderLink(
+					manga.id,
+					payload.provider,
 				);
-		}),
+				yield* requirePermission(
+					user,
+					alreadyLinked ? "MANGA_PROVIDER_REFRESH" : "MANGA_PROVIDER_ADD",
+				);
+				yield* scanProviderService.syncMangaChapters(
+					manga.id,
+					payload.slug,
+					payload.provider,
+					!alreadyLinked,
+				);
+			}, Effect.catch(toHttpError)),
+
+			getMangaProviders: Effect.fn(function* ({ params }) {
+				const manga = yield* getManga(params.mangaId);
+				return yield* scanProviderService.listMangaProviders(manga.id);
+			}, Effect.catch(toHttpError)),
+
+			getMangaProviderChapters: Effect.fn(function* ({ params }) {
+				const manga = yield* getManga(params.mangaId);
+				return yield* scanProviderService.listChapterNumbers(
+					manga.id,
+					params.provider,
+				);
+			}, Effect.catch(toHttpError)),
+
+			getMangaProviderChapterPages: Effect.fn(function* ({ params }) {
+				const manga = yield* getManga(params.mangaId);
+				return yield* scanProviderService.getChapterPages(
+					manga.id,
+					params.mangaId,
+					params.provider,
+					params.number,
+				);
+			}, Effect.catch(toHttpError)),
+
+			getMangaProviderChapterPage: Effect.fn(function* ({ params }) {
+				const manga = yield* getManga(params.mangaId);
+				const url = yield* scanProviderService.getChapterPagePresignedUrl(
+					manga.id,
+					params.provider,
+					params.number,
+					params.pageNumber,
+				);
+				return HttpServerResponse.redirect(url);
+			}, Effect.catch(toHttpError)),
+
+			searchProviderCatalog: ({ params, query }) =>
+				providerCatalogService
+					.search(params.provider, query.q)
+					.pipe(Effect.catch(toHttpError)),
+
+			deleteMangaProviderChapters: Effect.fn(function* ({ params }) {
+				const user = yield* CurrentUser;
+				yield* requirePermission(user, "MANGA_PROVIDER_DELETE");
+				const manga = yield* getManga(params.mangaId);
+				yield* scanProviderService.deleteMangaProviderChapters(
+					manga.id,
+					params.provider,
+				);
+			}, Effect.catch(toHttpError)),
+
+			getMangaProviderArchive: Effect.fn(function* ({ params }) {
+				const manga = yield* getManga(params.mangaId);
+				const key = scanProviderService.getProviderArchive(
+					manga.id,
+					params.provider,
+				);
+				const url = yield* s3.manga.getUrl(key);
+				return new ProviderArchive({ url });
+			}, Effect.catch(toHttpError)),
+		});
+	}),
 );

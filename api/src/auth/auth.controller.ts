@@ -1,5 +1,5 @@
-import { HttpApiBuilder, HttpServerRequest } from "@effect/platform";
-import { Effect } from "effect";
+import { Duration, Effect } from "effect";
+import { HttpApiBuilder } from "effect/http-api";
 import { appConfig } from "../config.js";
 import { MagicLinkService } from "../domain/user/magicLink.service.js";
 import { PasswordResetPreview, User } from "../domain/user/user.schema.js";
@@ -17,92 +17,73 @@ import {
 	sessionCookie,
 } from "./auth.middleware.js";
 
-export const AuthApiGroupLive = HttpApiBuilder.group(Api, "auth", (handlers) =>
-	Effect.gen(function* () {
+export const AuthApiGroupLive = HttpApiBuilder.group(
+	Api,
+	"auth",
+	Effect.fn(function* (handlers) {
 		const userService = yield* UserService;
 		const encryptService = yield* EncryptService;
 		const sessionService = yield* SessionService;
 		const magicLinkService = yield* MagicLinkService;
 		const config = yield* appConfig;
-		return handlers
-			.handle("login", ({ payload }) =>
-				Effect.gen(function* () {
-					const user = yield* userService
-						.getUserByEmailWithPassword(payload.email)
-						.pipe(
-							Effect.catchTag("UserNotFound", () => Effect.succeed(null)),
-							Effect.catchAll(toHttpError),
-						);
 
-					const isValid = yield* encryptService
-						.verify(payload.password, user?.password ?? DUMMY_PASSWORD_HASH)
-						.pipe(Effect.catchAll(toHttpError));
+		const setSessionCookie = (token: string, maxAge = sessionService.ttl) =>
+			HttpApiBuilder.securitySetCookie(sessionCookie, token, {
+				path: "/",
+				sameSite: "lax",
+				secure: config.cookieSecure,
+				maxAge,
+			});
 
-					if (user === null || !isValid) {
-						return yield* Effect.fail(
-							new UnauthorizedError({ message: "Invalid credentials" }),
-						);
-					}
+		return handlers.handleAll({
+			login: Effect.fn(function* ({ payload }) {
+				const user = yield* userService
+					.getUserByEmailWithPassword(payload.email)
+					.pipe(Effect.catchTag("UserNotFound", () => Effect.succeed(null)));
 
-					const token = yield* sessionService
-						.createToken(user.id)
-						.pipe(Effect.catchAll(toHttpError));
-					yield* HttpApiBuilder.securitySetCookie(sessionCookie, token, {
-						path: "/",
-						sameSite: "lax",
-						secure: config.cookieSecure,
-						maxAge: sessionService.ttl,
+				// Compare against a dummy hash for unknown emails, so both cases take
+				// the same time.
+				const isValid = yield* encryptService.verify(
+					payload.password,
+					user?.password ?? DUMMY_PASSWORD_HASH,
+				);
+				if (user === null || !isValid) {
+					return yield* new UnauthorizedError({
+						message: "Invalid credentials",
 					});
-					return new User({
-						id: user.id,
-						pseudo: user.pseudo,
-						email: user.email,
-						isAdmin: user.isAdmin,
-						permissions: user.permissions,
-					});
-				}),
-			)
-			.handle("logout", () =>
-				Effect.gen(function* () {
-					const request = yield* HttpServerRequest.HttpServerRequest;
-					const token = request.cookies[SESSION_COOKIE_NAME];
-					if (token) {
-						yield* sessionService
-							.revokeToken(token)
-							.pipe(Effect.catchAll(toHttpError));
-					}
-					yield* HttpApiBuilder.securitySetCookie(sessionCookie, "", {
-						path: "/",
-						sameSite: "lax",
-						secure: config.cookieSecure,
-						maxAge: 0,
-					});
-				}),
-			)
-			.handle("me", () => CurrentUser)
-			.handle("getPasswordReset", ({ path }) =>
-				Effect.gen(function* () {
-					const userId = yield* magicLinkService
-						.peekReset(path.token)
-						.pipe(Effect.catchAll(toHttpError));
-					const user = yield* userService
-						.getUserById(userId)
-						.pipe(Effect.catchAll(toHttpError));
-					return new PasswordResetPreview({ pseudo: user.pseudo });
-				}),
-			)
-			.handle("resetPassword", ({ path, payload }) =>
-				Effect.gen(function* () {
-					const userId = yield* magicLinkService
-						.consumeReset(path.token)
-						.pipe(Effect.catchAll(toHttpError));
-					yield* userService
-						.setPassword(userId, payload.password)
-						.pipe(Effect.catchAll(toHttpError));
-					yield* sessionService
-						.revokeAllForUser(userId)
-						.pipe(Effect.catchAll(toHttpError));
-				}),
-			);
+				}
+
+				yield* setSessionCookie(yield* sessionService.createToken(user.id));
+				return new User({
+					id: user.id,
+					pseudo: user.pseudo,
+					email: user.email,
+					isAdmin: user.isAdmin,
+					permissions: user.permissions,
+				});
+			}, Effect.catch(toHttpError)),
+
+			logout: Effect.fn(function* ({ request }) {
+				const token = request.cookies[SESSION_COOKIE_NAME];
+				if (token) {
+					yield* sessionService.revokeToken(token);
+				}
+				yield* setSessionCookie("", Duration.zero);
+			}, Effect.catch(toHttpError)),
+
+			me: () => Effect.service(CurrentUser),
+
+			getPasswordReset: Effect.fn(function* ({ params }) {
+				const userId = yield* magicLinkService.peekReset(params.token);
+				const user = yield* userService.getUserById(userId);
+				return new PasswordResetPreview({ pseudo: user.pseudo });
+			}, Effect.catch(toHttpError)),
+
+			resetPassword: Effect.fn(function* ({ params, payload }) {
+				const userId = yield* magicLinkService.consumeReset(params.token);
+				yield* userService.setPassword(userId, payload.password);
+				yield* sessionService.revokeAllForUser(userId);
+			}, Effect.catch(toHttpError)),
+		});
 	}),
 );
