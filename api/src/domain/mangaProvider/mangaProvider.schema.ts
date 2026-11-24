@@ -1,14 +1,15 @@
 import { Schema } from "effect";
+import { NonEmptyTrimmedString } from "../schema.js";
 
-export const AniListFormat = Schema.Literal("MANGA", "NOVEL", "ONE_SHOT");
+export const AniListFormat = Schema.Literals(["MANGA", "NOVEL", "ONE_SHOT"]);
 
-export const AniListStatus = Schema.Literal(
+export const AniListStatus = Schema.Literals([
 	"FINISHED",
 	"RELEASING",
 	"NOT_YET_RELEASED",
 	"CANCELLED",
 	"HIATUS",
-);
+]);
 
 export const AniListDate = Schema.Struct({
 	year: Schema.NullOr(Schema.Int),
@@ -16,10 +17,8 @@ export const AniListDate = Schema.Struct({
 	day: Schema.NullOr(Schema.Int),
 });
 
-const TrimmedNonEmptyString = Schema.compose(
-	Schema.Trim,
-	Schema.NonEmptyString,
-);
+/** Trims the input, then requires something left. */
+const TrimmedNonEmptyString = Schema.Trim.check(Schema.isNonEmpty());
 
 export const AniListStaffEdge = Schema.Struct({
 	role: TrimmedNonEmptyString,
@@ -39,13 +38,9 @@ export const AniListMedia = Schema.Struct({
 	startDate: AniListDate,
 	chapters: Schema.NullOr(Schema.Int),
 	averageScore: Schema.NullOr(Schema.Int),
-	description: Schema.NullOr(
-		Schema.compose(Schema.NonEmptyString, Schema.Trim).pipe(
-			Schema.minLength(1),
-		),
-	),
+	description: Schema.NullOr(TrimmedNonEmptyString),
 	coverImage: Schema.Struct({
-		large: Schema.NonEmptyTrimmedString,
+		large: NonEmptyTrimmedString,
 	}),
 	genres: Schema.Array(Schema.String),
 	staff: Schema.Struct({
@@ -73,7 +68,7 @@ export const AniListSearchMedia = Schema.Struct({
 	startDate: AniListDate,
 	averageScore: Schema.NullOr(Schema.Int),
 	coverImage: Schema.Struct({
-		large: Schema.NonEmptyTrimmedString,
+		large: NonEmptyTrimmedString,
 	}),
 });
 export type AniListSearchMedia = typeof AniListSearchMedia.Type;

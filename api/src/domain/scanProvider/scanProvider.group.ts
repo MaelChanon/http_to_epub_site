@@ -1,7 +1,9 @@
-import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "@effect/platform";
 import { Schema } from "effect";
+import { HttpApiEndpoint, HttpApiGroup, HttpApiSchema } from "effect/http-api";
 import { Authentication } from "../../auth/auth.middleware.js";
-import { AniListIdFromString } from "../mangaProvider/mangaProvider.domain.js";
+import { HttpErrors } from "../../http/error.js";
+import { AniListId } from "../mangaProvider/mangaProvider.domain.js";
+import { NonEmptyTrimmedString } from "../schema.js";
 import {
 	ChapterPages,
 	ChapterSummary,
@@ -11,103 +13,69 @@ import {
 	ProviderMangaSummary,
 } from "./scanProvider.domain.js";
 
-const MangaPath = Schema.Struct({ mangaId: AniListIdFromString });
-
-const MangaProviderPath = Schema.Struct({
-	mangaId: AniListIdFromString,
+const MangaProviderParams = {
+	mangaId: AniListId,
 	provider: MangaProviderName,
-});
+};
 
-const MangaProviderChapterPath = Schema.Struct({
-	mangaId: AniListIdFromString,
-	provider: MangaProviderName,
-	number: Schema.compose(Schema.NumberFromString, Schema.Int),
-});
+const ChapterParams = { ...MangaProviderParams, number: Schema.Int };
 
-const MangaProviderChapterPagePath = Schema.Struct({
-	mangaId: AniListIdFromString,
-	provider: MangaProviderName,
-	number: Schema.compose(Schema.NumberFromString, Schema.Int),
-	pageNumber: Schema.compose(Schema.NumberFromString, Schema.Int),
-});
+const chapters = "/scan/:mangaId/providers/:provider/chapters";
 
-const ProviderPath = Schema.Struct({ provider: MangaProviderName });
-
-const SearchProviderCatalogParams = Schema.Struct({
-	q: Schema.NonEmptyTrimmedString,
-});
-
-const IngestMangaChaptersPayload = Schema.Struct({
-	slug: Schema.NonEmptyTrimmedString,
-	provider: MangaProviderName,
-});
-
-export class ScanProviderApiGroup extends HttpApiGroup.make("scanProvider")
-	.add(
-		HttpApiEndpoint.post("syncMangaChapters", "/scan/:mangaId/chapters")
-			.addSuccess(Schema.Void)
-			.middleware(Authentication)
-			.setPath(MangaPath)
-			.setPayload(IngestMangaChaptersPayload),
-	)
-	.add(
-		HttpApiEndpoint.get("getMangaProviders", "/scan/:mangaId/providers")
-			.addSuccess(Schema.Array(MangaProviderChapters))
-			.middleware(Authentication)
-			.setPath(MangaPath),
-	)
-	.add(
-		HttpApiEndpoint.get(
-			"getMangaProviderChapters",
-			"/scan/:mangaId/providers/:provider/chapters",
-		)
-			.addSuccess(Schema.Array(ChapterSummary))
-			.middleware(Authentication)
-			.setPath(MangaProviderPath),
-	)
-	.add(
-		HttpApiEndpoint.get(
-			"getMangaProviderChapterPages",
-			"/scan/:mangaId/providers/:provider/chapters/:number/pages",
-		)
-			.addSuccess(ChapterPages)
-			.middleware(Authentication)
-			.setPath(MangaProviderChapterPath),
-	)
-	.add(
-		HttpApiEndpoint.get(
-			"getMangaProviderChapterPage",
-			"/scan/:mangaId/providers/:provider/chapters/:number/pages/:pageNumber",
-		)
-			.addSuccess(HttpApiSchema.Empty(302))
-			.middleware(Authentication)
-			.setPath(MangaProviderChapterPagePath),
-	)
-	.add(
-		HttpApiEndpoint.get(
-			"searchProviderCatalog",
-			"/scan/providers/:provider/search",
-		)
-			.addSuccess(Schema.Array(ProviderMangaSummary))
-			.middleware(Authentication)
-			.setPath(ProviderPath)
-			.setUrlParams(SearchProviderCatalogParams),
-	)
-	.add(
-		HttpApiEndpoint.del(
-			"deleteMangaProviderChapters",
-			"/scan/:mangaId/providers/:provider/chapters",
-		)
-			.addSuccess(Schema.Void)
-			.middleware(Authentication)
-			.setPath(MangaProviderPath),
-	)
-	.add(
-		HttpApiEndpoint.post(
-			"getMangaProviderArchive",
-			"/scan/:mangaId/providers/:provider/chapters/archive",
-		)
-			.addSuccess(ProviderArchive)
-			.middleware(Authentication)
-			.setPath(MangaProviderPath),
-	) {}
+export class ScanProviderApiGroup extends HttpApiGroup.make("scanProvider").add(
+	HttpApiEndpoint.post("syncMangaChapters", "/scan/:mangaId/chapters", {
+		params: { mangaId: AniListId },
+		payload: Schema.Struct({
+			slug: NonEmptyTrimmedString,
+			provider: MangaProviderName,
+		}),
+		error: HttpErrors,
+	}).middleware(Authentication),
+	HttpApiEndpoint.get("getMangaProviders", "/scan/:mangaId/providers", {
+		params: { mangaId: AniListId },
+		success: Schema.Array(MangaProviderChapters),
+		error: HttpErrors,
+	}).middleware(Authentication),
+	HttpApiEndpoint.get("getMangaProviderChapters", chapters, {
+		params: MangaProviderParams,
+		success: Schema.Array(ChapterSummary),
+		error: HttpErrors,
+	}).middleware(Authentication),
+	HttpApiEndpoint.get(
+		"getMangaProviderChapterPages",
+		`${chapters}/:number/pages`,
+		{
+			params: ChapterParams,
+			success: ChapterPages,
+			error: HttpErrors,
+		},
+	).middleware(Authentication),
+	HttpApiEndpoint.get(
+		"getMangaProviderChapterPage",
+		`${chapters}/:number/pages/:pageNumber`,
+		{
+			params: { ...ChapterParams, pageNumber: Schema.Int },
+			success: HttpApiSchema.Empty(302),
+			error: HttpErrors,
+		},
+	).middleware(Authentication),
+	HttpApiEndpoint.get(
+		"searchProviderCatalog",
+		"/scan/providers/:provider/search",
+		{
+			params: { provider: MangaProviderName },
+			query: { q: NonEmptyTrimmedString },
+			success: Schema.Array(ProviderMangaSummary),
+			error: HttpErrors,
+		},
+	).middleware(Authentication),
+	HttpApiEndpoint.delete("deleteMangaProviderChapters", chapters, {
+		params: MangaProviderParams,
+		error: HttpErrors,
+	}).middleware(Authentication),
+	HttpApiEndpoint.post("getMangaProviderArchive", `${chapters}/archive`, {
+		params: MangaProviderParams,
+		success: ProviderArchive,
+		error: HttpErrors,
+	}).middleware(Authentication),
+) {}

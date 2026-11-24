@@ -1,6 +1,8 @@
-import { HttpApiEndpoint, HttpApiGroup } from "@effect/platform";
 import { Schema } from "effect";
+import { HttpApiEndpoint, HttpApiGroup } from "effect/http-api";
 import { Authentication } from "../../auth/auth.middleware.js";
+import { HttpErrors } from "../../http/error.js";
+import { NonEmptyTrimmedString } from "../schema.js";
 import { Permission } from "./permission.js";
 import {
 	CreateInvitePayload,
@@ -13,71 +15,62 @@ import {
 	UserId,
 } from "./user.schema.js";
 
-const UserIdPath = Schema.Struct({ id: UserId });
-const TokenPath = Schema.Struct({ token: Schema.NonEmptyTrimmedString });
+const UserIdParams = { id: UserId };
+const TokenParams = { token: NonEmptyTrimmedString };
 
-const UpdatePermissionsPayload = Schema.Struct({
-	permissions: Schema.Array(Permission),
-});
-
-export class UsersApiGroup extends HttpApiGroup.make("users")
-	.add(
-		HttpApiEndpoint.put("createUser", "/user")
-			.addSuccess(User)
-			.setPayload(CreateUserPayload),
-	)
-	.add(
-		HttpApiEndpoint.get("listUsers", "/users")
-			.addSuccess(Schema.Array(User))
-			.middleware(Authentication),
-	)
-	.add(
-		HttpApiEndpoint.post("createInvite", "/users/invite")
-			.addSuccess(MagicLink)
-			.middleware(Authentication)
-			.setPayload(CreateInvitePayload),
-	)
-	.add(
-		HttpApiEndpoint.patch("updateUserPermissions", "/users/:id/permissions")
-			.addSuccess(User)
-			.middleware(Authentication)
-			.setPath(UserIdPath)
-			.setPayload(UpdatePermissionsPayload),
-	)
-	.add(
-		HttpApiEndpoint.post("createPasswordReset", "/users/:id/password-reset")
-			.addSuccess(MagicLink)
-			.middleware(Authentication)
-			.setPath(UserIdPath),
-	)
-	.add(
-		HttpApiEndpoint.del("deleteUser", "/users/:id")
-			.addSuccess(Schema.Void)
-			.middleware(Authentication)
-			.setPath(UserIdPath),
-	) {}
+export class UsersApiGroup extends HttpApiGroup.make("users").add(
+	HttpApiEndpoint.put("createUser", "/user", {
+		payload: CreateUserPayload,
+		success: User,
+		error: HttpErrors,
+	}),
+	HttpApiEndpoint.get("listUsers", "/users", {
+		success: Schema.Array(User),
+		error: HttpErrors,
+	}).middleware(Authentication),
+	HttpApiEndpoint.post("createInvite", "/users/invite", {
+		payload: CreateInvitePayload,
+		success: MagicLink,
+		error: HttpErrors,
+	}).middleware(Authentication),
+	HttpApiEndpoint.patch("updateUserPermissions", "/users/:id/permissions", {
+		params: UserIdParams,
+		payload: Schema.Struct({ permissions: Schema.Array(Permission) }),
+		success: User,
+		error: HttpErrors,
+	}).middleware(Authentication),
+	HttpApiEndpoint.post("createPasswordReset", "/users/:id/password-reset", {
+		params: UserIdParams,
+		success: MagicLink,
+		error: HttpErrors,
+	}).middleware(Authentication),
+	HttpApiEndpoint.delete("deleteUser", "/users/:id", {
+		params: UserIdParams,
+		error: HttpErrors,
+	}).middleware(Authentication),
+) {}
 
 export class AuthApiGroup extends HttpApiGroup.make("auth")
 	.add(
-		HttpApiEndpoint.post("login", "/login")
-			.addSuccess(User)
-			.setPayload(LoginPayload),
-	)
-	.add(HttpApiEndpoint.post("logout", "/logout").addSuccess(Schema.Void))
-	.add(
-		HttpApiEndpoint.get("me", "/me")
-			.addSuccess(User)
-			.middleware(Authentication),
-	)
-	.add(
-		HttpApiEndpoint.get("getPasswordReset", "/password-reset/:token")
-			.addSuccess(PasswordResetPreview)
-			.setPath(TokenPath),
-	)
-	.add(
-		HttpApiEndpoint.post("resetPassword", "/password-reset/:token")
-			.addSuccess(Schema.Void)
-			.setPath(TokenPath)
-			.setPayload(ResetPasswordPayload),
+		HttpApiEndpoint.post("login", "/login", {
+			payload: LoginPayload,
+			success: User,
+			error: HttpErrors,
+		}),
+		HttpApiEndpoint.post("logout", "/logout", { error: HttpErrors }),
+		HttpApiEndpoint.get("me", "/me", {
+			success: User,
+			error: HttpErrors,
+		}).middleware(Authentication),
+		HttpApiEndpoint.get("getPasswordReset", "/password-reset/:token", {
+			params: TokenParams,
+			success: PasswordResetPreview,
+			error: HttpErrors,
+		}),
+		HttpApiEndpoint.post("resetPassword", "/password-reset/:token", {
+			params: TokenParams,
+			payload: ResetPasswordPayload,
+			error: HttpErrors,
+		}),
 	)
 	.prefix("/auth") {}

@@ -2,8 +2,9 @@ import { Schema } from "effect";
 import { Epub } from "../epub/epub.domain.js";
 import { MangaProviderData } from "../mangaProvider/mangaProvider.domain.js";
 import { MangaProviderName } from "../scanProvider/scanProvider.domain.js";
+import { NonEmptyTrimmedString, UUID } from "../schema.js";
 
-export const MangaDbId = Schema.UUID.pipe(Schema.brand("MangaDbId"));
+export const MangaDbId = UUID.pipe(Schema.brand("MangaDbId"));
 export type MangaDbId = typeof MangaDbId.Type;
 
 const {
@@ -14,7 +15,7 @@ const {
 export class Manga extends Schema.Class<Manga>("Manga")({
 	...mangaProviderDataFieldsWithoutCover,
 	id: MangaDbId,
-	coverUrl: Schema.NonEmptyTrimmedString,
+	coverUrl: NonEmptyTrimmedString,
 	isFavorite: Schema.Boolean,
 }) {}
 
@@ -33,7 +34,7 @@ const {
 export class MangaSummary extends Schema.Class<MangaSummary>("MangaSummary")({
 	...mangaSummaryBaseFields,
 	id: MangaDbId,
-	coverUrl: Schema.NonEmptyTrimmedString,
+	coverUrl: NonEmptyTrimmedString,
 	providers: Schema.Array(MangaProviderName),
 	isFavorite: Schema.Boolean,
 	latestChapterAt: Schema.NullOr(Schema.Date),
