@@ -1,13 +1,19 @@
 import {
+	Array as Arr,
+	Context,
+	Data,
+	Effect,
+	Layer,
+	Option,
+	Schema,
+} from "effect";
+import {
 	FetchHttpClient,
-	type HttpBody,
 	HttpClient,
 	HttpClientRequest,
 	HttpClientResponse,
-} from "@effect/platform";
-import { Data, Effect, Array as EffectArray, Option, Schema } from "effect";
+} from "effect/http";
 import { mangaGenre } from "../../../drizzle/schema/mangas.js";
-
 import {
 	AniListId,
 	AniListSearchResult,
@@ -61,11 +67,6 @@ const QUERY = `
 	}
 `;
 
-const AniListRequestBody = Schema.Struct({
-	query: Schema.String,
-	variables: Schema.Struct({ id: AniListId }),
-});
-
 const SEARCH_QUERY = `
 	query ($search: String, $perPage: Int) {
 		Page(page: 1, perPage: $perPage) {
@@ -91,20 +92,6 @@ const SEARCH_QUERY = `
 		}
 	}
 `;
-
-const AniListSearchRequestBody = Schema.Struct({
-	query: Schema.String,
-	variables: Schema.Struct({
-		search: Schema.NonEmptyTrimmedString,
-		perPage: Schema.Int,
-	}),
-});
-
-function httpBodyErrorMessage(error: HttpBody.HttpBodyError) {
-	return error.reason._tag === "SchemaError"
-		? error.reason.error.message
-		: String(error.reason.error);
-}
 
 const FORMAT_MAP: Record<AniListMedia["format"], MangaFormat> = {
 	MANGA: "SERIES",
@@ -167,166 +154,111 @@ export class MangaProviderResponseInvalid extends Data.TaggedError(
 	}
 }
 
-export class MangaProviderService extends Effect.Service<MangaProviderService>()(
+function titleNative(title: AniListMedia["title"]) {
+	return title.native ?? title.romaji ?? title.english ?? "";
+}
+
+const make = Effect.gen(function* () {
+	const client = yield* HttpClient.HttpClient;
+
+	/** POSTs a GraphQL query; a non-2xx status other than 404 is a request failure. */
+	const post = (query: string, variables: Record<string, unknown>) =>
+		HttpClientRequest.post(ANILIST_ENDPOINT).pipe(
+			HttpClientRequest.bodyJsonUnsafe({ query, variables }),
+			client.execute,
+			Effect.mapError(
+				(error) => new MangaProviderRequestFailed({ message: error.message }),
+			),
+		);
+
+	const decodeBody =
+		<S extends Schema.Decoder<unknown>>(schema: S) =>
+		(response: HttpClientResponse.HttpClientResponse) =>
+			HttpClientResponse.filterStatusOk(response).pipe(
+				Effect.flatMap((ok) => ok.json),
+				Effect.mapError(
+					(error) => new MangaProviderRequestFailed({ message: error.message }),
+				),
+				Effect.flatMap(Schema.decodeUnknownEffect(schema)),
+				Effect.mapError((error) =>
+					error._tag === "SchemaError"
+						? new MangaProviderResponseInvalid({ message: error.message })
+						: error,
+				),
+			);
+
+	const fetchMedia = Effect.fn("MangaProviderService.fetchMedia")(function* (
+		anilistId: AniListId,
+	) {
+		const response = yield* post(QUERY, { id: anilistId });
+		if (response.status === 404) {
+			return yield* new MangaNotFoundInProvider({ anilistId });
+		}
+		const body = yield* decodeBody(AniListMediaResponse)(response);
+		if (body.data.Media === null) {
+			return yield* new MangaNotFoundInProvider({ anilistId });
+		}
+		return body.data.Media;
+	});
+
+	const fetchById = Effect.fn("MangaProviderService.fetchById")(function* (
+		anilistId: AniListId,
+	) {
+		const media = yield* fetchMedia(anilistId);
+		const genres = Arr.getSomes(
+			yield* Effect.forEach(media.genres, toMangaGenre),
+		);
+
+		return new MangaProviderData({
+			mangaId: anilistId,
+			titleRomaji: media.title.romaji,
+			titleEnglish: media.title.english,
+			titleNative: titleNative(media.title),
+			format: FORMAT_MAP[media.format],
+			status: STATUS_MAP[media.status],
+			publishedAt: toPublishedAt(media.startDate),
+			totalChapters: media.chapters,
+			score: media.averageScore,
+			summary: media.description,
+			coverImageUrl: media.coverImage.large,
+			genres,
+			staff: media.staff.edges.map(
+				(edge) =>
+					new MangaStaff({ name: edge.node.name.full, role: edge.role }),
+			),
+		});
+	});
+
+	const searchMedia = Effect.fn("MangaProviderService.searchMedia")(function* (
+		query: string,
+	) {
+		const response = yield* post(SEARCH_QUERY, { search: query, perPage: 20 });
+		const body = yield* decodeBody(AniListSearchResponse)(response);
+
+		return body.data.Page.media.map(
+			(media) =>
+				new AniListSearchResult({
+					mangaId: AniListId.make(media.id),
+					titleRomaji: media.title.romaji,
+					titleEnglish: media.title.english,
+					titleNative: titleNative(media.title),
+					format: FORMAT_MAP[media.format],
+					status: STATUS_MAP[media.status],
+					publishedAt: toPublishedAt(media.startDate),
+					score: media.averageScore,
+					coverImageUrl: media.coverImage.large,
+				}),
+		);
+	});
+
+	return { fetchById, searchMedia };
+});
+
+export class MangaProviderService extends Context.Service<MangaProviderService>()(
 	"api/MangaProviderService",
-	{
-		effect: Effect.gen(function* () {
-			const client = yield* HttpClient.HttpClient;
-
-			function fetchMedia(anilistId: AniListId) {
-				return Effect.gen(function* () {
-					const request = yield* HttpClientRequest.post(ANILIST_ENDPOINT).pipe(
-						HttpClientRequest.schemaBodyJson(AniListRequestBody)({
-							query: QUERY,
-							variables: { id: anilistId },
-						}),
-						Effect.mapError(
-							(error) =>
-								new MangaProviderRequestFailed({
-									message: httpBodyErrorMessage(error),
-								}),
-						),
-					);
-
-					const response = yield* client
-						.execute(request)
-						.pipe(
-							Effect.mapError(
-								(error) =>
-									new MangaProviderRequestFailed({ message: error.message }),
-							),
-						);
-
-					if (response.status === 404) {
-						return yield* Effect.fail(
-							new MangaNotFoundInProvider({ anilistId }),
-						);
-					}
-
-					const body = yield* HttpClientResponse.filterStatusOk(response).pipe(
-						Effect.flatMap(
-							HttpClientResponse.schemaBodyJson(AniListMediaResponse),
-						),
-						Effect.catchTag(
-							"ParseError",
-							(error) =>
-								new MangaProviderResponseInvalid({ message: error.message }),
-						),
-						Effect.catchTag(
-							"ResponseError",
-							(error) =>
-								new MangaProviderRequestFailed({ message: error.message }),
-						),
-					);
-
-					if (body.data.Media === null) {
-						return yield* Effect.fail(
-							new MangaNotFoundInProvider({ anilistId }),
-						);
-					}
-
-					return body.data.Media;
-				});
-			}
-
-			function fetchById(anilistId: AniListId) {
-				return Effect.gen(function* () {
-					const media = yield* fetchMedia(anilistId);
-					const genres = yield* Effect.forEach(media.genres, toMangaGenre).pipe(
-						Effect.map(EffectArray.getSomes),
-					);
-
-					return new MangaProviderData({
-						mangaId: anilistId,
-						titleRomaji: media.title.romaji,
-						titleEnglish: media.title.english,
-						titleNative:
-							media.title.native ??
-							media.title.romaji ??
-							media.title.english ??
-							"",
-						format: FORMAT_MAP[media.format],
-						status: STATUS_MAP[media.status],
-						publishedAt: toPublishedAt(media.startDate),
-						totalChapters: media.chapters,
-						score: media.averageScore,
-						summary: media.description,
-						coverImageUrl: media.coverImage.large,
-						genres,
-						staff: media.staff.edges.map(
-							(edge) =>
-								new MangaStaff({
-									name: edge.node.name.full,
-									role: edge.role,
-								}),
-						),
-					});
-				});
-			}
-
-			function searchMedia(query: string) {
-				return Effect.gen(function* () {
-					const request = yield* HttpClientRequest.post(ANILIST_ENDPOINT).pipe(
-						HttpClientRequest.schemaBodyJson(AniListSearchRequestBody)({
-							query: SEARCH_QUERY,
-							variables: { search: query, perPage: 20 },
-						}),
-						Effect.mapError(
-							(error) =>
-								new MangaProviderRequestFailed({
-									message: httpBodyErrorMessage(error),
-								}),
-						),
-					);
-
-					const response = yield* client
-						.execute(request)
-						.pipe(
-							Effect.mapError(
-								(error) =>
-									new MangaProviderRequestFailed({ message: error.message }),
-							),
-						);
-
-					const body = yield* HttpClientResponse.filterStatusOk(response).pipe(
-						Effect.flatMap(
-							HttpClientResponse.schemaBodyJson(AniListSearchResponse),
-						),
-						Effect.catchTag(
-							"ParseError",
-							(error) =>
-								new MangaProviderResponseInvalid({ message: error.message }),
-						),
-						Effect.catchTag(
-							"ResponseError",
-							(error) =>
-								new MangaProviderRequestFailed({ message: error.message }),
-						),
-					);
-
-					return body.data.Page.media.map(
-						(media) =>
-							new AniListSearchResult({
-								mangaId: AniListId.make(media.id),
-								titleRomaji: media.title.romaji,
-								titleEnglish: media.title.english,
-								titleNative:
-									media.title.native ??
-									media.title.romaji ??
-									media.title.english ??
-									"",
-								format: FORMAT_MAP[media.format],
-								status: STATUS_MAP[media.status],
-								publishedAt: toPublishedAt(media.startDate),
-								score: media.averageScore,
-								coverImageUrl: media.coverImage.large,
-							}),
-					);
-				});
-			}
-
-			return { fetchById, searchMedia };
-		}),
-		dependencies: [FetchHttpClient.layer],
-	},
-) {}
+	{ make },
+) {
+	static readonly Default = Layer.effect(this, make).pipe(
+		Layer.provide(FetchHttpClient.layer),
+	);
+}

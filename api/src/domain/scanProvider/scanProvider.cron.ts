@@ -1,4 +1,4 @@
-import { Cause, Effect, Layer, Schedule } from "effect";
+import { Effect, Layer, Schedule } from "effect";
 import { appConfig } from "../../config.js";
 import { ProviderRepository } from "./provider.repository.js";
 import { ProviderCatalogService } from "./providerCatalog.service.js";
@@ -15,15 +15,12 @@ const providerCatalogCronLoop = Effect.gen(function* () {
 		provider,
 		(provider) =>
 			providerCatalog.refreshCatalog(provider).pipe(
-				Effect.timeoutFail({
+				Effect.timeoutOrElse({
 					duration: CATALOG_REFRESH_TIMEOUT,
-					onTimeout: () => `timed out after ${CATALOG_REFRESH_TIMEOUT}`,
+					orElse: () =>
+						Effect.fail(`timed out after ${CATALOG_REFRESH_TIMEOUT}`),
 				}),
-				Effect.retry(
-					Schedule.exponential("1 seconds").pipe(
-						Schedule.compose(Schedule.recurs(3)),
-					),
-				),
+				Effect.retry({ schedule: Schedule.exponential("1 second"), times: 3 }),
 				Effect.tap((count) =>
 					count === 0
 						? Effect.logWarning(
@@ -33,9 +30,10 @@ const providerCatalogCronLoop = Effect.gen(function* () {
 								`provider catalog refreshed: ${provider} (${count} mangas)`,
 							),
 				),
-				Effect.catchAllCause((cause) =>
+				Effect.catchCause((cause) =>
 					Effect.logError(
-						`provider catalog refresh failed for ${provider}: ${Cause.pretty(cause)}`,
+						`provider catalog refresh failed for ${provider}`,
+						cause,
 					),
 				),
 			),
@@ -72,13 +70,13 @@ const staleLinkReconciliationLoop = Effect.gen(function* () {
 		`scan reconciliation: failed ${condemned.length} stale manga provider link(s)`,
 	);
 }).pipe(
-	Effect.catchAllCause((cause) =>
-		Effect.logError(`scan reconciliation sweep failed: ${cause}`),
+	Effect.catchCause((cause) =>
+		Effect.logError("scan reconciliation sweep failed", cause),
 	),
 	Effect.repeat(Schedule.fixed("5 minutes")),
 );
 
-export const ScanProviderCronLive = Layer.scopedDiscard(
+export const ScanProviderCronLive = Layer.effectDiscard(
 	Effect.gen(function* () {
 		yield* Effect.forkScoped(providerCatalogCronLoop);
 		yield* Effect.forkScoped(staleLinkReconciliationLoop);

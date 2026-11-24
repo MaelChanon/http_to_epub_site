@@ -1,11 +1,41 @@
-import { FetchHttpClient, HttpClient } from "@effect/platform";
-// Subpath imports only: the package root also loads NodeClusterHttp, whose
-// @effect/cluster peer dependency is not installed (crashes at startup).
-import * as NodeHttpClient from "@effect/platform-node/NodeHttpClient";
+import { NodeHttpClient } from "@effect/platform-node";
 import Undici from "@effect/platform-node/Undici";
-import { Effect } from "effect";
+import { Context, Effect, Layer } from "effect";
+import { FetchHttpClient, HttpClient } from "effect/http";
 import { appConfig } from "../../config.js";
 import type { MangaProvider } from "../mangaFetcher/mangaFetcher.service.js";
+
+const make = Effect.gen(function* () {
+	const config = yield* appConfig;
+	const directClient = yield* HttpClient.HttpClient;
+
+	const proxyUrls = new Map<MangaProvider, string>();
+	if (config.animeSamaProxyUrl !== "") {
+		proxyUrls.set("ANIME_SAMA", config.animeSamaProxyUrl);
+	}
+
+	const proxiedClients = new Map<MangaProvider, HttpClient.HttpClient>();
+	for (const [provider, url] of proxyUrls) {
+		const agent = yield* Effect.acquireRelease(
+			Effect.sync(() => new Undici.ProxyAgent(url)),
+			(agent) => Effect.promise(() => agent.close()),
+		);
+		const client = yield* NodeHttpClient.makeUndici.pipe(
+			Effect.provideService(NodeHttpClient.Dispatcher, agent),
+		);
+		proxiedClients.set(provider, client);
+		yield* Effect.logInfo(`provider ${provider} goes through a proxy`);
+	}
+
+	/** The proxy the provider's scraping must go through, if any. */
+	const proxyUrl = (provider: MangaProvider) => proxyUrls.get(provider);
+
+	/** The HTTP client to download the provider's images with. */
+	const httpClient = (provider: MangaProvider) =>
+		proxiedClients.get(provider) ?? directClient;
+
+	return { proxyUrl, httpClient };
+});
 
 /**
  * Which providers must be reached through a proxy, because they ban the
@@ -15,40 +45,11 @@ import type { MangaProvider } from "../mangaFetcher/mangaFetcher.service.js";
  * Node's page downloads and FlareSolverr, since a cf_clearance is bound to the
  * IP that earned it. See doc/cloudflare-clearance.md.
  */
-export class ProviderProxyService extends Effect.Service<ProviderProxyService>()(
+export class ProviderProxyService extends Context.Service<ProviderProxyService>()(
 	"api/ProviderProxyService",
-	{
-		scoped: Effect.gen(function* () {
-			const config = yield* appConfig;
-			const directClient = yield* HttpClient.HttpClient;
-
-			const proxyUrls = new Map<MangaProvider, string>();
-			if (config.animeSamaProxyUrl !== "") {
-				proxyUrls.set("ANIME_SAMA", config.animeSamaProxyUrl);
-			}
-
-			const proxiedClients = new Map<MangaProvider, HttpClient.HttpClient>();
-			for (const [provider, url] of proxyUrls) {
-				const agent = yield* Effect.acquireRelease(
-					Effect.sync(() => new Undici.ProxyAgent(url)),
-					(agent) => Effect.promise(() => agent.close()),
-				);
-				proxiedClients.set(provider, NodeHttpClient.makeUndici(agent));
-				yield* Effect.logInfo(`provider ${provider} goes through a proxy`);
-			}
-
-			/** The proxy the provider's scraping must go through, if any. */
-			function proxyUrl(provider: MangaProvider) {
-				return proxyUrls.get(provider);
-			}
-
-			/** The HTTP client to download the provider's images with. */
-			function httpClient(provider: MangaProvider) {
-				return proxiedClients.get(provider) ?? directClient;
-			}
-
-			return { proxyUrl, httpClient } as const;
-		}),
-		dependencies: [FetchHttpClient.layer],
-	},
-) {}
+	{ make },
+) {
+	static readonly Default = Layer.effect(this, make).pipe(
+		Layer.provide(FetchHttpClient.layer),
+	);
+}

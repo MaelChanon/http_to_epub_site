@@ -35,17 +35,17 @@ const reconciliationLoop = Effect.gen(function* () {
 		);
 	}
 }).pipe(
-	Effect.catchAllCause((cause) =>
-		Effect.logError(`epub reconciliation sweep failed: ${cause}`),
+	Effect.catchCause((cause) =>
+		Effect.logError("epub reconciliation sweep failed", cause),
 	),
 	Effect.repeat(Schedule.fixed("5 minutes")),
 );
 
-export const EpubCronLive = Layer.scopedDiscard(
+export const EpubCronLive = Layer.effectDiscard(
 	Effect.gen(function* () {
 		yield* purgeOutputDirOnBoot.pipe(
-			Effect.catchAllCause((cause) =>
-				Effect.logError(`failed to purge epub output dir on boot: ${cause}`),
+			Effect.catchCause((cause) =>
+				Effect.logError("failed to purge epub output dir on boot", cause),
 			),
 		);
 		yield* Effect.forkScoped(reconciliationLoop);

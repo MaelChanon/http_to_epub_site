@@ -1,12 +1,14 @@
 import { Layer } from "effect";
 import { DBLayer } from "../drizzle/db.js";
 import { AuthService } from "./auth/auth.service.js";
+import { ArchiveService } from "./domain/archive/archive.service.js";
 import { CloudflareService } from "./domain/cloudflare/cloudflare.service.js";
 import { EpubCronLive } from "./domain/epub/epub.cron.js";
 import { EpubRepository } from "./domain/epub/epub.repository.js";
 import { EpubService } from "./domain/epub/epub.service.js";
 import { MangaRepository } from "./domain/manga/manga.repository.js";
 import { MangaService } from "./domain/manga/manga.service.js";
+import { MangaFetcherService } from "./domain/mangaFetcher/mangaFetcher.service.js";
 import { MangaProviderService } from "./domain/mangaProvider/mangaProvider.service.js";
 import { ProviderProxyService } from "./domain/providerProxy/providerProxy.service.js";
 import { S3Service } from "./domain/s3/s3.service.js";
@@ -26,6 +28,8 @@ import { SessionService } from "./session/session.service.js";
 
 const ServicesLive = Layer.mergeAll(
 	AuthService.Default,
+	ArchiveService.Default,
+	MangaFetcherService.Default,
 	DBLayer,
 	RedisClientLive,
 	EncryptService.Default,

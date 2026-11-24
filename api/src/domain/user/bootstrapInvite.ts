@@ -37,8 +37,8 @@ const announceBootstrapInvite = Effect.gen(function* () {
 
 export const BootstrapInviteLive = Layer.effectDiscard(
 	announceBootstrapInvite.pipe(
-		Effect.catchAllCause((cause) =>
-			Effect.logError(`failed to issue the bootstrap invite link: ${cause}`),
+		Effect.catchCause((cause) =>
+			Effect.logError("failed to issue the bootstrap invite link", cause),
 		),
 	),
 );
