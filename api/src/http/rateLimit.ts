@@ -1,9 +1,9 @@
+import { Effect, Option } from "effect";
 import {
 	HttpMiddleware,
 	HttpServerRequest,
 	HttpServerResponse,
-} from "@effect/platform";
-import { Effect, Option } from "effect";
+} from "effect/http";
 import { RedisClient } from "../redis.js";
 
 interface RateLimitRule {
@@ -45,7 +45,6 @@ export const rateLimit = HttpMiddleware.make((httpApp) =>
 			(rule) =>
 				rule.methods.has(request.method) && rule.pattern.test(request.url),
 		);
-
 		if (!rule) {
 			return yield* httpApp;
 		}
@@ -54,36 +53,31 @@ export const rateLimit = HttpMiddleware.make((httpApp) =>
 		const client = Option.getOrElse(request.remoteAddress, () => "unknown");
 		const key = `ratelimit:${rule.name}:${client}`;
 
-		const count = yield* Effect.tryPromise({
-			try: async () => {
-				const hits = await redis.incr(key);
-				if (hits === 1) {
-					await redis.expire(key, rule.windowSeconds);
-				}
-				return hits;
-			},
-			catch: (e) => e,
+		const count = yield* Effect.tryPromise(async () => {
+			const hits = await redis.incr(key);
+			if (hits === 1) {
+				await redis.expire(key, rule.windowSeconds);
+			}
+			return hits;
 		}).pipe(
-			Effect.catchAll((e) =>
+			Effect.catch((e) =>
 				Effect.logError(
-					`Rate limit counter unavailable for ${rule.name}: ${e instanceof Error ? e.message : String(e)}`,
+					`Rate limit counter unavailable for ${rule.name}`,
+					e.cause,
 				).pipe(Effect.as(0)),
 			),
 		);
-
 		if (count <= rule.limit) {
 			return yield* httpApp;
 		}
 
-		const retryAfter = yield* Effect.tryPromise({
-			try: () => redis.ttl(key),
-			catch: () => rule.windowSeconds,
-		}).pipe(Effect.catchAll(() => Effect.succeed(rule.windowSeconds)));
-
-		return yield* HttpServerResponse.empty({
+		const ttl = yield* Effect.tryPromise(() => redis.ttl(key)).pipe(
+			Effect.orElseSucceed(() => rule.windowSeconds),
+		);
+		return HttpServerResponse.empty({
 			status: 429,
 			headers: {
-				"retry-after": String(retryAfter > 0 ? retryAfter : rule.windowSeconds),
+				"retry-after": String(ttl > 0 ? ttl : rule.windowSeconds),
 			},
 		});
 	}),
