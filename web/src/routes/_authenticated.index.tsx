@@ -6,7 +6,7 @@ import { FavoritesSection } from "@/components/domain/home/favorites-section";
 import { NewDropsSection } from "@/components/domain/home/new-drops-section";
 import { Header } from "@/components/header";
 
-const homeSearchSchema = Schema.standardSchemaV1(
+const homeSearchSchema = Schema.toStandardSchemaV1(
 	Schema.Struct({ favorites: Schema.optional(Schema.Boolean) }),
 );
 

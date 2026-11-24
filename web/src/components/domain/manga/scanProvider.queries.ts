@@ -4,7 +4,7 @@ import {
 	useQuery,
 	useQueryClient,
 } from "@tanstack/react-query";
-import { Either, Schema } from "effect";
+import { Result, Schema } from "effect";
 import { useEffect } from "react";
 import type { AniListId, MangaProviderName } from "@/lib/api";
 import {
@@ -95,7 +95,9 @@ export function useDeleteMangaProviderChapters(mangaId: AniListId) {
 	});
 }
 
-const decodeScanEvent = Schema.decodeUnknownEither(Schema.parseJson(ScanEvent));
+const decodeScanEvent = Schema.decodeUnknownResult(
+	Schema.fromJsonString(ScanEvent),
+);
 
 export function useMangaProviderEvents(mangaId: AniListId) {
 	const queryClient = useQueryClient();
@@ -107,7 +109,7 @@ export function useMangaProviderEvents(mangaId: AniListId) {
 		const queryKey = scanProviderKeys.mangaProviders(mangaId);
 
 		source.onmessage = (event) => {
-			if (Either.isLeft(decodeScanEvent(event.data))) {
+			if (Result.isFailure(decodeScanEvent(event.data))) {
 				return;
 			}
 

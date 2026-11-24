@@ -1,4 +1,3 @@
-import { FetchHttpClient, HttpApiClient } from "@effect/platform";
 import type {
 	AniListSearchResult,
 	ChapterPages,
@@ -19,6 +18,8 @@ import type {
 } from "@workspace/api";
 import { type AniListId, Api } from "@workspace/api";
 import { Effect, Layer } from "effect";
+import { FetchHttpClient } from "effect/http";
+import { HttpApiClient } from "effect/http-api";
 
 export type {
 	AniListSearchResult,
@@ -58,151 +59,104 @@ const client = Effect.runSync(
 	Effect.provide(HttpApiClient.make(Api), HttpClientLive),
 );
 
+/** Runs a client call as a Promise; any failure rejects with an `ApiError`. */
+function run<A, E>(call: Effect.Effect<A, E>): Promise<A> {
+	return Effect.runPromise(call.pipe(Effect.catch(toApiError)));
+}
+
 export function login(payload: LoginPayload): Promise<User> {
-	return Effect.runPromise(
-		client.auth.login({ payload }).pipe(Effect.catchAll(toApiError)),
-	);
+	return run(client.auth.login({ payload }));
 }
 
 export function logout(): Promise<void> {
-	return Effect.runPromise(
-		client.auth.logout().pipe(Effect.catchAll(toApiError)),
-	);
+	return run(client.auth.logout());
 }
 
 export function getCurrentUser(): Promise<User | null> {
-	return Effect.runPromise(
-		client.auth.me().pipe(
-			Effect.catchTag("UnauthorizedError", () => Effect.succeed(null)),
-			Effect.catchAll(toApiError),
-		),
+	return run(
+		client.auth
+			.me()
+			.pipe(Effect.catchTag("UnauthorizedError", () => Effect.succeed(null))),
 	);
 }
 
 export function listUsers(): Promise<readonly User[]> {
-	return Effect.runPromise(
-		client.users.listUsers().pipe(Effect.catchAll(toApiError)),
-	);
+	return run(client.users.listUsers());
 }
 
 export function updateUserPermissions(
 	id: User["id"],
 	permissions: readonly Permission[],
 ): Promise<User> {
-	return Effect.runPromise(
-		client.users
-			.updateUserPermissions({ path: { id }, payload: { permissions } })
-			.pipe(Effect.catchAll(toApiError)),
+	return run(
+		client.users.updateUserPermissions({
+			params: { id },
+			payload: { permissions },
+		}),
 	);
 }
 
 export function deleteUser(id: User["id"]): Promise<void> {
-	return Effect.runPromise(
-		client.users.deleteUser({ path: { id } }).pipe(Effect.catchAll(toApiError)),
-	);
+	return run(client.users.deleteUser({ params: { id } }));
 }
 
 export function acceptInvite(
 	token: string,
 	values: { pseudo: string; email: string; password: string },
 ): Promise<User> {
-	return Effect.runPromise(
-		client.users
-			.createUser({ payload: { ...values, token } })
-			.pipe(Effect.catchAll(toApiError)),
-	);
+	return run(client.users.createUser({ payload: { ...values, token } }));
 }
 
 export function createInvite(
 	permissions: readonly Permission[],
 ): Promise<MagicLink> {
-	return Effect.runPromise(
-		client.users
-			.createInvite({ payload: { permissions } })
-			.pipe(Effect.catchAll(toApiError)),
-	);
+	return run(client.users.createInvite({ payload: { permissions } }));
 }
 
 export function createPasswordReset(id: User["id"]): Promise<MagicLink> {
-	return Effect.runPromise(
-		client.users
-			.createPasswordReset({ path: { id } })
-			.pipe(Effect.catchAll(toApiError)),
-	);
+	return run(client.users.createPasswordReset({ params: { id } }));
 }
 
 export function getPasswordReset(token: string): Promise<PasswordResetPreview> {
-	return Effect.runPromise(
-		client.auth
-			.getPasswordReset({ path: { token } })
-			.pipe(Effect.catchAll(toApiError)),
-	);
+	return run(client.auth.getPasswordReset({ params: { token } }));
 }
 
 export function resetPassword(token: string, password: string): Promise<void> {
-	return Effect.runPromise(
-		client.auth
-			.resetPassword({ path: { token }, payload: { password } })
-			.pipe(Effect.catchAll(toApiError)),
+	return run(
+		client.auth.resetPassword({ params: { token }, payload: { password } }),
 	);
 }
 
 export function getManga(mangaId: AniListId) {
-	return Effect.runPromise(
-		client.manga
-			.getManga({ path: { mangaId } })
-			.pipe(Effect.catchAll(toApiError)),
-	);
+	return run(client.manga.getManga({ params: { mangaId } }));
 }
 
 export function refreshManga(mangaId: AniListId) {
-	return Effect.runPromise(
-		client.manga
-			.refreshManga({ path: { mangaId } })
-			.pipe(Effect.catchAll(toApiError)),
-	);
+	return run(client.manga.refreshManga({ params: { mangaId } }));
 }
 
 export function listMangas(): Promise<readonly MangaSummary[]> {
-	return Effect.runPromise(
-		client.manga.listMangas().pipe(Effect.catchAll(toApiError)),
-	);
+	return run(client.manga.listMangas());
 }
 
 export function searchManga(
 	q: string,
 ): Promise<readonly AniListSearchResult[]> {
-	return Effect.runPromise(
-		client.manga
-			.searchManga({ urlParams: { q } })
-			.pipe(Effect.catchAll(toApiError)),
-	);
+	return run(client.manga.searchManga({ query: { q } }));
 }
 
 export function addFavorite(mangaId: AniListId): Promise<Manga> {
-	return Effect.runPromise(
-		client.manga
-			.addFavorite({ path: { mangaId } })
-			.pipe(Effect.catchAll(toApiError)),
-	);
+	return run(client.manga.addFavorite({ params: { mangaId } }));
 }
 
 export function removeFavorite(mangaId: AniListId): Promise<Manga> {
-	return Effect.runPromise(
-		client.manga
-			.removeFavorite({ path: { mangaId } })
-			.pipe(Effect.catchAll(toApiError)),
-	);
+	return run(client.manga.removeFavorite({ params: { mangaId } }));
 }
 
 export function getMangaProviders(
 	mangaId: AniListId,
 ): Promise<readonly MangaProviderChapters[]> {
-	return Effect.runPromise(
-		client.scanProvider
-			.getMangaProviders({ path: { mangaId } })
-			.pipe(Effect.catchAll(toApiError)),
-	);
+	return run(client.scanProvider.getMangaProviders({ params: { mangaId } }));
 }
 
 export function getChapterPages(
@@ -210,10 +164,10 @@ export function getChapterPages(
 	provider: MangaProviderName,
 	number: number,
 ): Promise<ChapterPages> {
-	return Effect.runPromise(
-		client.scanProvider
-			.getMangaProviderChapterPages({ path: { mangaId, provider, number } })
-			.pipe(Effect.catchAll(toApiError)),
+	return run(
+		client.scanProvider.getMangaProviderChapterPages({
+			params: { mangaId, provider, number },
+		}),
 	);
 }
 
@@ -221,10 +175,8 @@ export function syncMangaChapters(
 	mangaId: AniListId,
 	payload: { slug: string; provider: MangaProviderName },
 ): Promise<void> {
-	return Effect.runPromise(
-		client.scanProvider
-			.syncMangaChapters({ path: { mangaId }, payload })
-			.pipe(Effect.catchAll(toApiError)),
+	return run(
+		client.scanProvider.syncMangaChapters({ params: { mangaId }, payload }),
 	);
 }
 
@@ -232,10 +184,10 @@ export function deleteMangaProviderChapters(
 	mangaId: AniListId,
 	provider: MangaProviderName,
 ): Promise<void> {
-	return Effect.runPromise(
-		client.scanProvider
-			.deleteMangaProviderChapters({ path: { mangaId, provider } })
-			.pipe(Effect.catchAll(toApiError)),
+	return run(
+		client.scanProvider.deleteMangaProviderChapters({
+			params: { mangaId, provider },
+		}),
 	);
 }
 
@@ -243,10 +195,10 @@ export function buildProviderArchive(
 	mangaId: AniListId,
 	provider: MangaProviderName,
 ): Promise<ProviderArchive> {
-	return Effect.runPromise(
-		client.scanProvider
-			.getMangaProviderArchive({ path: { mangaId, provider } })
-			.pipe(Effect.catchAll(toApiError)),
+	return run(
+		client.scanProvider.getMangaProviderArchive({
+			params: { mangaId, provider },
+		}),
 	);
 }
 
@@ -255,33 +207,28 @@ export function generateEpub(
 	provider: MangaProviderName,
 	payload: CreateEpubPayload,
 ): Promise<Epub> {
-	return Effect.runPromise(
-		client.epub
-			.createEpub({ path: { mangaId, provider }, payload })
-			.pipe(Effect.catchAll(toApiError)),
+	return run(
+		client.epub.createEpub({ params: { mangaId, provider }, payload }),
 	);
 }
 
 export function listEpubs(): Promise<readonly MangaEpubs[]> {
-	return Effect.runPromise(
-		client.epub.listEpubs().pipe(Effect.catchAll(toApiError)),
-	);
+	return run(client.epub.listEpubs());
 }
 
 export function deleteEpub(id: Epub["id"]): Promise<void> {
-	return Effect.runPromise(
-		client.epub.deleteEpub({ path: { id } }).pipe(Effect.catchAll(toApiError)),
-	);
+	return run(client.epub.deleteEpub({ params: { id } }));
 }
 
 export function searchProviderCatalog(
 	provider: MangaProviderName,
 	q: string,
 ): Promise<readonly ProviderMangaSummary[]> {
-	return Effect.runPromise(
-		client.scanProvider
-			.searchProviderCatalog({ path: { provider }, urlParams: { q } })
-			.pipe(Effect.catchAll(toApiError)),
+	return run(
+		client.scanProvider.searchProviderCatalog({
+			params: { provider },
+			query: { q },
+		}),
 	);
 }
 
