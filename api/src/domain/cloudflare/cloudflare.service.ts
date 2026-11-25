@@ -141,7 +141,7 @@ const make = Effect.gen(function* () {
 		}
 
 		// The whole cookie set, not just cf_clearance: the origin sets others and
-		// the crate replays the header as-is.
+		// the scrapers replay the header as-is.
 		const { cookies, userAgent } = response.solution;
 		const clearance: Clearance = {
 			cookie: cookies.map((c) => `${c.name}=${c.value}`).join("; "),

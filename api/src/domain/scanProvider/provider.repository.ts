@@ -1,6 +1,5 @@
 import { and, eq, inArray, lt, notInArray, or, sql } from "drizzle-orm";
 import { Context, Effect, Layer, Option } from "effect";
-import type { MangaProvider } from "manga-fetcher";
 import { DB, DBLayer } from "../../../drizzle/db.js";
 import {
 	mangaProviders,
@@ -12,6 +11,7 @@ import {
 	toSQLError,
 } from "../../../drizzle/schema/utils.js";
 import { MangaDbId } from "../manga/manga.domain.js";
+import type { MangaProvider } from "../mangaFetcher/mangaFetcher.service.js";
 import {
 	type MangaProviderName,
 	type MangaProviderStatus,

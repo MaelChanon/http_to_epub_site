@@ -305,14 +305,14 @@ const make = Effect.gen(function* () {
 		const fetchPage = (key: string, url: string) =>
 			cf.run(
 				(clearance) =>
-					mangaFetcher.getPageRequestHeaders(provider, clearance).pipe(
-						Effect.flatMap((headers) =>
-							s3.manga.fetchAndUpload(key, url, {
-								headers,
-								client: providerProxy.httpClient(provider),
-							}),
+					s3.manga.fetchAndUpload(key, url, {
+						headers: mangaFetcher.getPageRequestHeaders(
+							provider,
+							url,
+							clearance,
 						),
-					),
+						client: providerProxy.httpClient(provider),
+					}),
 				(error) =>
 					error._tag === "ImageFetchFailed" &&
 					error.cloudflareChallenge === true,
@@ -323,7 +323,7 @@ const make = Effect.gen(function* () {
 				processChapter(
 					mangaDbId,
 					providerId,
-					{ ...chapter, chapterNumber: chapter.chapterNumber + 1 },
+					{ chapterNumber: chapter.number + 1, pages: chapter.pages },
 					fetchPage,
 				).pipe(
 					Effect.andThen(

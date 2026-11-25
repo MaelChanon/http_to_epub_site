@@ -20,9 +20,10 @@ const make = Effect.gen(function* () {
 			Effect.sync(() => new Undici.ProxyAgent(url)),
 			(agent) => Effect.promise(() => agent.close()),
 		);
-		const client = yield* NodeHttpClient.makeUndici.pipe(
+		// Unlike fetch, undici's raw client does not follow redirects by itself.
+		const client = (yield* NodeHttpClient.makeUndici.pipe(
 			Effect.provideService(NodeHttpClient.Dispatcher, agent),
-		);
+		)).pipe(HttpClient.followRedirects());
 		proxiedClients.set(provider, client);
 		yield* Effect.logInfo(`provider ${provider} goes through a proxy`);
 	}
@@ -30,7 +31,7 @@ const make = Effect.gen(function* () {
 	/** The proxy the provider's scraping must go through, if any. */
 	const proxyUrl = (provider: MangaProvider) => proxyUrls.get(provider);
 
-	/** The HTTP client to download the provider's images with. */
+	/** The HTTP client to reach the provider with. */
 	const httpClient = (provider: MangaProvider) =>
 		proxiedClients.get(provider) ?? directClient;
 
@@ -41,8 +42,8 @@ const make = Effect.gen(function* () {
  * Which providers must be reached through a proxy, because they ban the
  * server's own IP (anime-sama blocks hosting providers' ranges outright, a
  * Cloudflare block that no challenge solver gets past). Everything that talks
- * to such a provider must leave through the same proxy: the Rust scrapers,
- * Node's page downloads and FlareSolverr, since a cf_clearance is bound to the
+ * to such a provider must leave through the same proxy: the scrapers,
+ * the page downloads and FlareSolverr, since a cf_clearance is bound to the
  * IP that earned it. See doc/cloudflare-clearance.md.
  */
 export class ProviderProxyService extends Context.Service<ProviderProxyService>()(

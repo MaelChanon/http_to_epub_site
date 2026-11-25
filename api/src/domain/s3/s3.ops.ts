@@ -44,7 +44,7 @@ export class ImageFetchFailed extends Data.TaggedError("ImageFetchFailed")<{
  * Tells a Cloudflare challenge apart from an ordinary 403 (e.g. hotlink
  * protection, which a clearance would never fix): Cloudflare tags challenges
  * with `cf-mitigated`; older interstitials are a 503 from `server: cloudflare`.
- * Same rule as `is_challenge` in the http_to_epub crate.
+ * Same rule as `isChallenge` in effect_http_to_epub.
  */
 function isCloudflareChallenge(
 	status: number,

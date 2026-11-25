@@ -143,7 +143,7 @@ const make = Effect.gen(function* () {
 			{ concurrency: 5 },
 		);
 
-	/** Builds the epub file with manga-fetcher and uploads it; returns its size. */
+	/** Builds the epub file and uploads it; returns its size. */
 	const buildAndUpload = Effect.fn("EpubService.buildAndUpload")(function* (
 		row: NonNullable<Effect.Success<ReturnType<typeof epubRepo.findById>>>,
 		outputPath: string,
@@ -166,7 +166,7 @@ const make = Effect.gen(function* () {
 			? s3.user.getUrl(row.coverKey, INTERNAL_PRESIGN_TTL_SECONDS)
 			: s3.manga.getUrl(row.manga.path, INTERNAL_PRESIGN_TTL_SECONDS);
 
-		const built = yield* mangaFetcher.buildEpub({
+		yield* mangaFetcher.buildEpub({
 			tag: String(row.manga.mangaId),
 			name: row.manga.titleNative,
 			coverUrl,
@@ -185,7 +185,7 @@ const make = Effect.gen(function* () {
 		});
 		yield* s3.user.upload(row.s3Key, bytes, "application/epub+zip");
 
-		return built.fileSizeBytes;
+		return bytes.byteLength;
 	});
 
 	const generate = Effect.fn("EpubService.generate")(function* (

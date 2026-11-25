@@ -4,14 +4,10 @@ WORKDIR /repo
 COPY package.json package-lock.json ./
 COPY api/package.json api/package.json
 COPY web/package.json web/package.json
-COPY manga-fetcher/package.json manga-fetcher/package.json
 RUN npm ci
 
 FROM deps AS builder
 WORKDIR /repo
-COPY manga-fetcher/tsconfig.json manga-fetcher/tsconfig.json
-COPY manga-fetcher/src manga-fetcher/src
-RUN npx tsc -p manga-fetcher/tsconfig.json
 COPY api api
 COPY web web
 WORKDIR /repo/web
