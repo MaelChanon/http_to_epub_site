@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 A self-hosted manga tracker/reader that turns scanlations into EPUBs. Users
 favorite manga (metadata from AniList), the API scrapes chapters from scan
-sites via a Rust native addon, and chapters can be read in-browser or bundled
+sites (`effect_http_to_epub`), and chapters can be read in-browser or bundled
 into a downloadable archive/EPUB.
 
 npm workspaces monorepo:
@@ -15,12 +15,6 @@ npm workspaces monorepo:
   (`effect/http-api`). Postgres via Drizzle, sessions in Redis, object storage via
   Garage (S3-compatible).
 - `web/` — React 19 + Vite + TanStack Router/Query, Tailwind v4, shadcn/radix.
-- `manga-fetcher/` — Neon (Rust native addon) exposing scraping logic to
-  Node. Depends on the `http_to_epub` crate via `path = "../http_to_epub"`.
-  See `doc/manga-fetcher.md`.
-- `http_to_epub/`: the Rust scraping/EPUB crate, a **git submodule**
-  (`github.com/MaelChanon/http_to_epub`). Clone with `--recurse-submodules`
-  or run `git submodule update --init` before building `manga-fetcher`.
 
 `web` and `api` share the API contract via the `@workspace/api` workspace
 package (contract-first `HttpApi`) — see [Frontière @workspace/api](#the-workspaceapi-boundary-strict)
@@ -47,15 +41,10 @@ docker compose up -d
 cd api && npm run db:migrate    # drizzle-kit migrate
 # generate a new migration after editing api/drizzle/schema/*.ts:
 cd api && npx drizzle-kit generate
-
-# manga-fetcher native addon (only needed after changing manga-fetcher or http_to_epub Rust code)
-cd manga-fetcher && npm run build   # release build (tsc + cargo build --release + neon dist)
-cd manga-fetcher && npm run debug   # same, debug build
 ```
 
 There is no test suite in this repo (no vitest/jest config, no `*.test.*`
-files) — `manga-fetcher`'s `npm test` just runs `cargo test` on the Rust
-addon crate.
+files).
 
 Garage's S3 bucket/keys aren't bootstrapped by `docker compose up`; one-time
 manual setup is documented in `doc/s3.md`.
@@ -145,29 +134,29 @@ by hand — there is no mail infrastructure. Full flow, endpoint table and known
 gaps (no logout UI, CSRF middleware blind to a missing `Origin`, no self-service password
 change, invitations cannot be revoked): `doc/auth.md`.
 
-### manga-fetcher native addon
+### Manga fetcher
 
-Wrapped API-side by `api/src/domain/mangaFetcher/mangaFetcher.service.ts`,
-which turns every native-call `Promise` rejection into a domain error via
-`Effect.tryPromise`. Consumed by `ScanProviderService` and the scan cron jobs
-(`api/src/domain/scanProvider/`). `getProviderCatalog` scrapes a provider's
-entire catalog and can take minutes — only call it from a scheduled job
-(`scanProvider.cron.ts`), never from a synchronous request handler. Provider
-base URLs are hardcoded Rust-side; TS only picks `"SUSHISCAN" |
-"SUSHISCAN_NET" | "MANGA_ORIGINS" | "ANIME_SAMA"`. `SUSHISCAN_NET` and
-`ANIME_SAMA` sit behind Cloudflare: Node's own page
-downloads must send `getPageRequestHeaders(provider)` (Referer + browser UA),
-or sushiscan.net answers 403. When Cloudflare challenges, `CloudflareService`
-(`api/src/domain/cloudflare/`) gets a `cf_clearance` from the FlareSolverr
-compose service, shares it through Redis and retries once: always go through
-`cloudflare.session(provider).run(...)` for these calls
-(`doc/cloudflare-clearance.md`). anime-sama bans the prod server's IP, so all
-its traffic (crate, Node image downloads, FlareSolverr) goes through
-`ANIME_SAMA_PROXY_URL` (gluetun VPN in prod): `MangaFetcherService` and
-`CloudflareService` apply it themselves, and image downloads must use
-`ProviderProxyService.httpClient(provider)`. Rebuild it locally after changing
-`manga-fetcher/` or the `http_to_epub/` submodule's Rust source (`index.node`/`lib/`/`target/` are
-gitignored and machine-specific). Full details: `doc/manga-fetcher.md`.
+Scraping and EPUB building come from the `effect_http_to_epub` npm library,
+wrapped by `api/src/domain/mangaFetcher/mangaFetcher.service.ts` (the only
+file importing it), which turns every library error into a
+`MangaFetcherFetchFailed` domain error. Consumed by `ScanProviderService`,
+`EpubService` and the scan cron jobs (`api/src/domain/scanProvider/`).
+`getProviderCatalog` scrapes a provider's entire catalog and can take minutes:
+only call it from a scheduled job (`scanProvider.cron.ts`), never from a
+synchronous request handler. Provider base URLs are hardcoded in that service;
+callers only pick `"SUSHISCAN" | "SUSHISCAN_NET" | "MANGA_ORIGINS" |
+"ANIME_SAMA"`. Page downloads must send `getPageRequestHeaders(provider, url)`
+(Referer + browser UA), or sushiscan.net answers 403. When Cloudflare
+challenges, `CloudflareService` (`api/src/domain/cloudflare/`) gets a
+`cf_clearance` from the FlareSolverr compose service, shares it through Redis
+and retries once: always go through `cloudflare.session(provider).run(...)`
+for these calls (`doc/cloudflare-clearance.md`). anime-sama bans the prod
+server's IP, so all its traffic (scraping, image downloads, FlareSolverr) goes
+through `ANIME_SAMA_PROXY_URL` (gluetun VPN in prod): `MangaFetcherService`
+and `CloudflareService` apply it themselves, and image downloads must use
+`ProviderProxyService.httpClient(provider)`. mangas-origines.fr currently
+challenges Node clients even with a clearance. Full details:
+`doc/manga-fetcher.md`.
 
 ### S3 storage (Garage)
 

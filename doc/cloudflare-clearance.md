@@ -22,10 +22,10 @@ fails with a Cloudflare challenge?
 
 A "challenge" is recognised two ways:
 
-- **Rust side** (`getMangaChapters`, `getProviderCatalog`): the crate's
-  `CfError::ClearanceRequired`, which crosses the Neon boundary as a string
-  prefixed with `CF_CLEARANCE_REQUIRED` (`MangaFetcherFetchFailed.needsClearance`).
-- **Node side** (page downloads, `fetchAndUpload` in `s3.ops.ts`): a `403`
+- **Scraping** (`getMangaChapters`, `getProviderCatalog`):
+  effect_http_to_epub's `ClearanceRequired`, for any provider
+  (`MangaFetcherFetchFailed.needsClearance`).
+- **Page downloads** (`fetchAndUpload` in `s3.ops.ts`): a `403`
   carrying the `cf-mitigated` header, or a `503` from `server: cloudflare`
   (`ImageFetchFailed.cloudflareChallenge`).
 
@@ -58,7 +58,7 @@ a loop. The missing-headers case is handled by `getPageRequestHeaders`.
   1500 s, a bit under the cookie's ~30 min life).
 - Solve request: `POST $FLARESOLVERR_URL` with
   `{ "cmd": "request.get", "url": <provider base URL>, "maxTimeout": 60000 }`.
-  The base URL comes from `getProviderBaseUrl` (hardcoded Rust-side). Every
+  The base URL comes from `getProviderBaseUrl` (hardcoded in `mangaFetcher.service.ts`). Every
   returned cookie is kept (the origin sets more than `cf_clearance`), along
   with `solution.userAgent`.
 
@@ -74,7 +74,7 @@ Measured, not guessed:
 - **The cookie and the User-Agent are one unit.** Cloudflare binds
   `cf_clearance` to the UA of the browser that earned it. Always replay
   FlareSolverr's `userAgent` with the cookie (`getPageRequestHeaders` and the
-  crate both do).
+  scrapers both do).
 - **The clearance is bound to the exit IP.** FlareSolverr must reach the
   internet through the same public IP as the API. True when both run on the
   same host (both compose files); breaks if you move one behind another egress.
@@ -115,11 +115,10 @@ The only fix is to leave through another IP. With `ANIME_SAMA_PROXY_URL` set,
 `ProviderProxyService` (`api/src/domain/providerProxy/`) makes **every**
 anime-sama request go through that proxy:
 
-- the Rust scrapers: `MangaFetcherService` passes it as
-  `ProviderAccess.proxyUrl`, which the crate wires into its `CfSession`
-  (`CfSession::with_options`);
-- Node's page downloads: `ProviderProxyService.httpClient(provider)` is an
-  undici client over a `ProxyAgent`, passed to `fetchAndUpload`;
+- the scrapers: `MangaFetcherService` runs them on
+  `ProviderProxyService.httpClient(provider)`, an undici client over a
+  `ProxyAgent`;
+- the page downloads: the same client is passed to `fetchAndUpload`;
 - FlareSolverr solves: `CloudflareService` adds `proxy: { url }` to the
   `request.get` command.
 
@@ -127,9 +126,7 @@ All three must share the exit IP, since a `cf_clearance` is bound to the IP
 that earned it. If the VPN reconnects to another server, the cached clearance
 dies with the old IP; the usual challenge, renew and retry path covers it.
 
-Other providers never use the proxy, and the addon refuses a proxy for the
-providers whose scrapers have no session to carry it (`SUSHISCAN`,
-`MANGA_ORIGINS`).
+Other providers never use the proxy.
 
 In prod the proxy is a [gluetun](https://github.com/qdm12/gluetun) container
 (ProtonVPN free, `FREE_ONLY=on`, `HTTPPROXY=on` on `:8888`), credentials in
