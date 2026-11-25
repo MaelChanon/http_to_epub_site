@@ -1,0 +1,40 @@
+{
+  "type": "diff",
+  "version": "10",
+  "dialect": "postgres",
+  "id": "40944334-330f-4a45-be8d-d23b033885d7",
+  "prevIds": [
+    "26f74a80-458a-4ce1-8e7d-b1b8887a8a2a"
+  ],
+  "footprints": [
+    {
+      "statementType": "alter_enum",
+      "statementTarget": [
+        "enum",
+        "public",
+        "provider_name"
+      ],
+      "writes": [
+        "s|enum|public.provider_name"
+      ],
+      "reads": [
+        "n|sch|public"
+      ]
+    }
+  ],
+  "deltas": [
+    {
+      "op": "alter",
+      "key": "enums\u0000[\"public\",\"provider_name\"]",
+      "set": {
+        "values": [
+          "SUSHISCAN",
+          "MANGA_ORIGINS",
+          "SUSHISCAN_NET",
+          "ANIME_SAMA",
+          "WEEBCENTRAL"
+        ]
+      }
+    }
+  ]
+}

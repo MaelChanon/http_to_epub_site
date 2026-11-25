@@ -3,9 +3,14 @@ import { appConfig } from "../../config.js";
 import { ProviderRepository } from "./provider.repository.js";
 import { ProviderCatalogService } from "./providerCatalog.service.js";
 import { ScanEventsService } from "./scanEvents.service.js";
-import { PROVIDERS, ScanEvent } from "./scanProvider.domain.js";
+import {
+	type MangaProviderName,
+	PROVIDERS,
+	ScanEvent,
+} from "./scanProvider.domain.js";
 
-const CATALOG_REFRESH_TIMEOUT = "45 minutes";
+const catalogRefreshTimeout = (provider: MangaProviderName) =>
+	provider === "WEEBCENTRAL" ? "4 hours" : "45 minutes";
 
 const providerCatalogCronLoop = Effect.gen(function* () {
 	const providerCatalog = yield* ProviderCatalogService;
@@ -16,9 +21,9 @@ const providerCatalogCronLoop = Effect.gen(function* () {
 		(provider) =>
 			providerCatalog.refreshCatalog(provider).pipe(
 				Effect.timeoutOrElse({
-					duration: CATALOG_REFRESH_TIMEOUT,
+					duration: catalogRefreshTimeout(provider),
 					orElse: () =>
-						Effect.fail(`timed out after ${CATALOG_REFRESH_TIMEOUT}`),
+						Effect.fail(`timed out after ${catalogRefreshTimeout(provider)}`),
 				}),
 				Effect.retry({ schedule: Schedule.exponential("1 second"), times: 3 }),
 				Effect.tap((count) =>

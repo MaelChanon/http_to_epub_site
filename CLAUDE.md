@@ -145,7 +145,9 @@ file importing it), which turns every library error into a
 only call it from a scheduled job (`scanProvider.cron.ts`), never from a
 synchronous request handler. Provider base URLs are hardcoded in that service;
 callers only pick `"SUSHISCAN" | "SUSHISCAN_NET" | "MANGA_ORIGINS" |
-"ANIME_SAMA"`. Page downloads must send `getPageRequestHeaders(provider, url)`
+"ANIME_SAMA" | "WEEBCENTRAL"`. weebcentral allows one page request every 10 s:
+its pacer is shared by all calls, and its catalog comes from the listing pages
+only (no chapter counts). Page downloads must send `getPageRequestHeaders(provider, url)`
 (Referer + browser UA), or sushiscan.net answers 403. When Cloudflare
 challenges, `CloudflareService` (`api/src/domain/cloudflare/`) gets a
 `cf_clearance` from the FlareSolverr compose service, shares it through Redis

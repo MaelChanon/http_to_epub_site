@@ -1,13 +1,15 @@
 import { NodeFileSystem, NodePath } from "@effect/platform-node";
-import { Context, Data, Effect, Layer } from "effect";
+import { Clock, Context, Data, Effect, Layer, Semaphore } from "effect";
 import { FetchHttpClient, HttpClient } from "effect/http";
 import {
 	AnimeSama,
 	type BuildError,
 	Chapter,
 	type Clearance,
+	collectPages,
 	EpubBuilder,
 	Fetcher,
+	fetchDocument,
 	headersFor,
 	ImageProcessor,
 	MangaInfo,
@@ -20,17 +22,43 @@ import {
 	SushiScanNet,
 	toFile,
 	USER_AGENT,
+	WeebCentral,
 } from "effect_http_to_epub";
 import { ProviderProxyService } from "../providerProxy/providerProxy.service.js";
 
 export type { Clearance };
 
 const SITES = {
-	SUSHISCAN: { layer: SushiScan, baseUrl: "https://sushiscan.fr" },
-	SUSHISCAN_NET: { layer: SushiScanNet, baseUrl: "https://sushiscan.net" },
-	MANGA_ORIGINS: { layer: MangaOrigins, baseUrl: "https://mangas-origines.fr" },
-	ANIME_SAMA: { layer: AnimeSama, baseUrl: "https://anime-sama.to" },
+	SUSHISCAN: {
+		layer: SushiScan,
+		baseUrl: "https://sushiscan.fr",
+		lang: "fr-FR",
+	},
+	SUSHISCAN_NET: {
+		layer: SushiScanNet,
+		baseUrl: "https://sushiscan.net",
+		lang: "fr-FR",
+	},
+	MANGA_ORIGINS: {
+		layer: MangaOrigins,
+		baseUrl: "https://mangas-origines.fr",
+		lang: "fr-FR",
+	},
+	ANIME_SAMA: {
+		layer: AnimeSama,
+		baseUrl: "https://anime-sama.to",
+		lang: "fr-FR",
+	},
+	WEEBCENTRAL: {
+		layer: WeebCentral,
+		baseUrl: "https://weebcentral.com",
+		lang: "en-US",
+	},
 };
+
+// Crawl-delay the library applies to weebcentral, but per site layer only.
+const WEEBCENTRAL_CRAWL_DELAY_MILLIS = 10_000;
+const WEEBCENTRAL_PAGE_SIZE = 32;
 
 export type MangaProvider = keyof typeof SITES;
 
@@ -40,6 +68,10 @@ export type MangaProvider = keyof typeof SITES;
  */
 export const getProviderBaseUrl = (provider: MangaProvider) =>
 	SITES[provider].baseUrl;
+
+/** The language the provider's scans are in. */
+export const getProviderLang = (provider: MangaProvider) =>
+	SITES[provider].lang;
 
 export interface BuildEpubInput {
 	readonly tag: string;
@@ -92,12 +124,94 @@ const toFetchFailed = (error: LibraryError) =>
 		needsClearance: error._tag === "ClearanceRequired",
 	});
 
+/** Spaces requests out: one at a time, `delayMillis` after the previous one. */
+const makePacer = Effect.fnUntraced(function* (delayMillis: number) {
+	const semaphore = yield* Semaphore.make(1);
+	let next = 0;
+	const waitForTurn = Effect.gen(function* () {
+		const wait = next - (yield* Clock.currentTimeMillis);
+		if (wait > 0) {
+			yield* Effect.sleep(wait);
+		}
+	});
+	const endTurn = Effect.map(Clock.currentTimeMillis, (now) => {
+		next = now + delayMillis;
+	});
+	return <A, E, R>(request: Effect.Effect<A, E, R>) =>
+		semaphore.withPermit(
+			Effect.andThen(waitForTurn, Effect.ensuring(request, endTurn)),
+		);
+});
+
+/**
+ * The library's `getAllMangas` makes two more requests per series: 10 s apart,
+ * over 10 000 series, it would take days. The listing pages alone (about an
+ * hour) give the tags and names, but no chapter count or cover.
+ */
+const listWeebCentral = Effect.gen(function* () {
+	const names = new Map<string, string>();
+	yield* collectPages((page) => {
+		const query = new URLSearchParams({
+			limit: String(WEEBCENTRAL_PAGE_SIZE),
+			offset: String(page * WEEBCENTRAL_PAGE_SIZE),
+			sort: "Alphabet",
+			order: "Ascending",
+			official: "Any",
+			anime: "Any",
+			adult: "Any",
+			display_mode: "Minimal Display",
+		});
+		return Effect.map(
+			fetchDocument(`${SITES.WEEBCENTRAL.baseUrl}/search/data?${query}`),
+			(doc) =>
+				doc.root.querySelectorAll('a[href*="/series/"]').flatMap((link) => {
+					// Series links end with an optional slug: /series/<id>/<slug>
+					const tag = /\/series\/([^/?#]+)/.exec(
+						link.getAttribute("href") ?? "",
+					)?.[1];
+					const name = link.text.trim();
+					if (tag === undefined || name === "") {
+						return [];
+					}
+					names.set(tag, name);
+					return [tag];
+				}),
+		);
+	}, 0);
+	return [...names].map(
+		([tag, name]) =>
+			new MangaInfo({ tag, name, coverUrl: "", chapterCount: 0 }),
+	);
+});
+
 const make = Effect.gen(function* () {
 	const providerProxy = yield* ProviderProxyService;
 	const epubBuilder = yield* EpubBuilder;
+	const paceWeebCentral = yield* makePacer(WEEBCENTRAL_CRAWL_DELAY_MILLIS);
 
-	// Scraping goes through the provider's own client, so that no caller can
-	// forget its proxy.
+	const fetcherLayer = (provider: MangaProvider) => {
+		const layer = Fetcher.layer().pipe(
+			Layer.provide(
+				Layer.succeed(
+					HttpClient.HttpClient,
+					providerProxy.httpClient(provider),
+				),
+			),
+		);
+		if (provider !== "WEEBCENTRAL") {
+			return layer;
+		}
+		return Layer.effect(
+			Fetcher,
+			Effect.map(Fetcher, (fetcher) =>
+				Fetcher.of({
+					...fetcher,
+					text: (url, options) => paceWeebCentral(fetcher.text(url, options)),
+				}),
+			),
+		).pipe(Layer.provide(layer));
+	};
+
 	const withSite = <A>(
 		provider: MangaProvider,
 		clearance: Clearance | undefined,
@@ -105,13 +219,7 @@ const make = Effect.gen(function* () {
 	) => {
 		const { layer, baseUrl } = SITES[provider];
 		const siteLayer = layer(baseUrl, clearance).pipe(
-			Layer.provide(Fetcher.layer()),
-			Layer.provide(
-				Layer.succeed(
-					HttpClient.HttpClient,
-					providerProxy.httpClient(provider),
-				),
-			),
+			Layer.provide(fetcherLayer(provider)),
 		);
 		return Provider.use(use).pipe(
 			Effect.provide(siteLayer),
@@ -128,8 +236,31 @@ const make = Effect.gen(function* () {
 			site.getMangaInfo(slug).pipe(Effect.flatMap(site.getChapters)),
 		);
 
-	const getProviderCatalog = (provider: MangaProvider, clearance?: Clearance) =>
-		withSite(provider, clearance, (site) => site.getAllMangas());
+	const getWeebCentralCatalog = (clearance?: Clearance) => {
+		const session = makeSession(SITES.WEEBCENTRAL.baseUrl, clearance);
+		return listWeebCentral.pipe(
+			Effect.updateService(Fetcher, (fetcher) =>
+				Fetcher.of({
+					...fetcher,
+					text: (url, options) =>
+						fetcher.text(url, {
+							...options,
+							headers: { ...headersFor(session, url), ...options?.headers },
+						}),
+				}),
+			),
+			Effect.provide(fetcherLayer("WEEBCENTRAL")),
+			Effect.mapError(toFetchFailed),
+		);
+	};
+
+	const getProviderCatalog = (
+		provider: MangaProvider,
+		clearance?: Clearance,
+	) =>
+		provider === "WEEBCENTRAL"
+			? getWeebCentralCatalog(clearance)
+			: withSite(provider, clearance, (site) => site.getAllMangas());
 
 	/**
 	 * Headers to download a page image with. The `Referer` (hotlink protection)

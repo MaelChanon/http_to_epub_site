@@ -15,7 +15,7 @@ RUN npm run build
 
 FROM node:22-bookworm-slim AS runtime
 ENV NODE_ENV=production
-RUN npm install --global serve@14.2.4
+RUN npm install --global serve@14.2.8
 WORKDIR /app
 COPY --from=builder /repo/web/dist ./dist
 USER node

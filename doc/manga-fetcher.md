@@ -10,7 +10,7 @@ the library.
 ## Service
 
 ```ts
-type MangaProvider = "SUSHISCAN" | "SUSHISCAN_NET" | "MANGA_ORIGINS" | "ANIME_SAMA";
+type MangaProvider = "SUSHISCAN" | "SUSHISCAN_NET" | "MANGA_ORIGINS" | "ANIME_SAMA" | "WEEBCENTRAL";
 
 getMangaChapters(slug, provider, clearance?)      // Chapter[] ({ number, pages }), number starts at 0
 getProviderCatalog(provider, clearance?)          // MangaInfo[] ({ tag, name, coverUrl, chapterCount })
@@ -19,8 +19,11 @@ buildEpub(input)                                  // writes the .epub to input.o
 ```
 
 - Provider base URLs are hardcoded in `SITES`, next to the library layer
-  (`SushiScan`, `SushiScanNet`, `MangaOrigins`, `AnimeSama`) of each provider.
-  Adding a provider means one entry there, plus the `provider_name` DB enum.
+  (`SushiScan`, `SushiScanNet`, `MangaOrigins`, `AnimeSama`, `WeebCentral`) and
+  the language of each provider. `getProviderLang(provider)` gives the latter,
+  written in the generated EPUBs. Adding a provider means one entry there, the
+  `provider_name` DB enum (and its migration), and the catalogue link in
+  `web/src/components/domain/manga/scanProvider.util.ts`.
 - The site layer is rebuilt on every call, with the call's clearance. This is
   cheap: building it does no I/O.
 - `getProviderCatalog` scrapes a provider's **entire** catalog (full
@@ -37,6 +40,25 @@ buildEpub(input)                                  // writes the .epub to input.o
 
 Anime-sama tags are the work's slug for its first scan version, and
 `<slug>.<dir>.<lang>` for the others (e.g. `one-piece.scan_noir-et-blanc.vf`).
+
+## WEEBCENTRAL
+
+English scans. Tags are the series id in the URL (`/series/<id>/<name>`).
+The site's crawl delay is 10 s between page requests (a handful of parallel ones
+gets a 429), which changes three things. Images, on another host, are not
+concerned.
+
+- **Shared delay.** The library spaces requests out per site layer, and the
+  layer is rebuilt on every call, so `MangaFetcherService` adds one pacer shared
+  by every weebcentral call (catalog refresh and concurrent syncs).
+- **Catalog from the listing only.** The library's `getAllMangas` makes two more
+  requests per series: over 10 000 series, it would take days.
+  `getProviderCatalog` reads the listing pages instead (about an hour), so
+  entries have no chapter count (`0`, shown as unknown). The cron gives it a
+  4 hour timeout instead of 45 minutes.
+- **Slow syncs.** A sync takes at least 10 s per chapter, and longer than the
+  30 minute stale cutoff past ~180 chapters, so `runSync` heartbeats
+  the link while it scrapes.
 
 ## HTTP client and proxy
 

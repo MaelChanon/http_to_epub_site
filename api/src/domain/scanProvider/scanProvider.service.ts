@@ -1,4 +1,4 @@
-import { and, eq, sql } from "drizzle-orm";
+import { and, eq, ne, sql } from "drizzle-orm";
 import { Cause, Context, Data, Effect, Exit, Layer, Option, Ref } from "effect";
 import { DB, DBLayer } from "../../../drizzle/db.js";
 import { chapters, pages } from "../../../drizzle/schema/providers.js";
@@ -81,6 +81,17 @@ export class PageNotFound extends Data.TaggedError("PageNotFound")<{
 const archiveKey = (mangaDbId: MangaDbId, provider: MangaProvider) =>
 	`${mangaDbId}/archives/${provider}.zip`;
 
+const pageKey = (
+	mangaDbId: MangaDbId,
+	provider: MangaProvider,
+	chapterNumber: number,
+	pageNumber: number,
+	extension: string,
+) => `${mangaDbId}/${provider}/${chapterNumber}/${pageNumber}.${extension}`;
+
+// Well under STALE_TRANSITION_MINUTES.
+const SCRAPE_HEARTBEAT = "5 minutes";
+
 const extensionOf = (pathOrUrl: string) => pathOrUrl.split(".").pop() || "jpg";
 
 const byNumber = (a: { number: number }, b: { number: number }) =>
@@ -133,20 +144,69 @@ const make = Effect.gen(function* () {
 			);
 
 	/**
-	 * Uploads a chapter's pages and records them; uploaded files are removed if
-	 * anything fails. `fetchPage` downloads `url` and stores it under `key`.
+	 * Deletes a provider's page objects, except those another provider of the
+	 * manga still points to: keys did not always include the provider, so older
+	 * pages can be shared.
+	 */
+	const deletePageObjects = Effect.fn("ScanProviderService.deletePageObjects")(
+		function* (
+			mangaDbId: MangaDbId,
+			providerId: string,
+			keys: readonly string[],
+		) {
+			if (keys.length === 0) {
+				return;
+			}
+			const others = yield* db
+				.select({ path: pages.path })
+				.from(pages)
+				.innerJoin(chapters, eq(pages.chapterId, chapters.id))
+				.where(
+					and(
+						eq(chapters.mangaId, mangaDbId),
+						ne(chapters.providerId, providerId),
+					),
+				)
+				.pipe(Effect.mapError(toSQLError));
+			const shared = new Set(others.map((page) => page.path));
+			yield* s3.manga.deleteObjects(keys.filter((key) => !shared.has(key)));
+		},
+	);
+
+	/**
+	 * Uploads a chapter's pages and records them; newly uploaded files are
+	 * removed if anything fails, and the files they replace once recorded.
+	 * `fetchPage` downloads `url` and stores it under `key`.
 	 */
 	const processChapter = Effect.fn("ScanProviderService.processChapter")(
 		function* <E>(
 			mangaDbId: MangaDbId,
+			provider: MangaProvider,
 			providerId: string,
 			chapter: { chapterNumber: number; pages: readonly string[] },
 			fetchPage: (key: string, url: string) => Effect.Effect<unknown, E>,
 		) {
 			const uploadedKeys = yield* Ref.make<string[]>([]);
+			const previousChapter = yield* db.query.chapters
+				.findFirst({
+					where: {
+						mangaId: mangaDbId,
+						providerId,
+						number: chapter.chapterNumber,
+					},
+					with: { pages: true },
+				})
+				.pipe(Effect.mapError(toSQLError));
+			const previousPages = previousChapter?.pages ?? [];
 
 			const uploadPage = (pageUrl: string, index: number) => {
-				const key = `${mangaDbId}/${chapter.chapterNumber}/${index + 1}.${extensionOf(new URL(pageUrl).pathname)}`;
+				const key = pageKey(
+					mangaDbId,
+					provider,
+					chapter.chapterNumber,
+					index + 1,
+					extensionOf(new URL(pageUrl).pathname),
+				);
 				return fetchPage(key, pageUrl).pipe(
 					Effect.tap(() => Ref.update(uploadedKeys, (keys) => [...keys, key])),
 					Effect.as({ number: index + 1, path: key }),
@@ -163,7 +223,7 @@ const make = Effect.gen(function* () {
 					chapter.chapterNumber,
 				);
 				if (pagePaths.length === 0) {
-					return;
+					return pagePaths;
 				}
 				yield* db
 					.insert(pages)
@@ -175,15 +235,30 @@ const make = Effect.gen(function* () {
 						set: { path: sql`excluded.path` },
 					})
 					.pipe(Effect.mapError(toSQLError));
+				return pagePaths;
 			});
 
-			yield* store.pipe(
+			const recorded = new Set(previousPages.map((page) => page.path));
+			const stored = yield* store.pipe(
 				Effect.onError(() =>
 					Ref.get(uploadedKeys).pipe(
-						Effect.flatMap(s3.manga.deleteObjects),
+						Effect.flatMap((keys) =>
+							s3.manga.deleteObjects(keys.filter((key) => !recorded.has(key))),
+						),
 						Effect.ignore({ log: true }),
 					),
 				),
+			);
+
+			const newPaths = new Map(stored.map((page) => [page.number, page.path]));
+			const replaced = previousPages
+				.filter((page) => {
+					const newPath = newPaths.get(page.number);
+					return newPath !== undefined && newPath !== page.path;
+				})
+				.map((page) => page.path);
+			yield* deletePageObjects(mangaDbId, providerId, replaced).pipe(
+				Effect.ignore({ log: true }),
 			);
 		},
 	);
@@ -298,10 +373,21 @@ const make = Effect.gen(function* () {
 		provider: MangaProvider,
 	) {
 		const cf = yield* cloudflare.session(provider);
-		const rawChapters = yield* cf.run(
-			(clearance) => mangaFetcher.getMangaChapters(slug, provider, clearance),
-			(error) => error.needsClearance,
-		);
+		// Scraping a long manga on a provider with a crawl delay (weebcentral)
+		// outlasts the stale cutoff, and no chapter is stored in the meantime.
+		const heartbeat = providerRepo
+			.touchMangaProviderLink(mangaDbId, providerId)
+			.pipe(
+				Effect.ignore({ log: true }),
+				Effect.delay(SCRAPE_HEARTBEAT),
+				Effect.forever,
+			);
+		const rawChapters = yield* cf
+			.run(
+				(clearance) => mangaFetcher.getMangaChapters(slug, provider, clearance),
+				(error) => error.needsClearance,
+			)
+			.pipe(Effect.raceFirst(heartbeat));
 		const fetchPage = (key: string, url: string) =>
 			cf.run(
 				(clearance) =>
@@ -322,6 +408,7 @@ const make = Effect.gen(function* () {
 			(chapter) =>
 				processChapter(
 					mangaDbId,
+					provider,
 					providerId,
 					{ chapterNumber: chapter.number + 1, pages: chapter.pages },
 					fetchPage,
@@ -447,7 +534,7 @@ const make = Effect.gen(function* () {
 		const deleteContent = Effect.gen(function* () {
 			const rows = yield* findChapters(mangaDbId, providerId);
 			const paths = rows.flatMap((row) => row.pages.map((page) => page.path));
-			yield* s3.manga.deleteObjects([
+			yield* deletePageObjects(mangaDbId, providerId, [
 				...paths,
 				archiveKey(mangaDbId, provider),
 			]);

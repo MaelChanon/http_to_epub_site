@@ -6,7 +6,10 @@ import { DBLayer } from "../../../drizzle/db.js";
 import { appConfig } from "../../config.js";
 import { MangaDbId } from "../manga/manga.domain.js";
 import { MangaRepository } from "../manga/manga.repository.js";
-import { MangaFetcherService } from "../mangaFetcher/mangaFetcher.service.js";
+import {
+	getProviderLang,
+	MangaFetcherService,
+} from "../mangaFetcher/mangaFetcher.service.js";
 import { AniListId } from "../mangaProvider/mangaProvider.domain.js";
 import { S3Service } from "../s3/s3.service.js";
 import { ProviderRepository } from "../scanProvider/provider.repository.js";
@@ -171,7 +174,7 @@ const make = Effect.gen(function* () {
 			name: row.manga.titleNative,
 			coverUrl,
 			creator: row.creator,
-			lang: "fr-FR",
+			lang: getProviderLang(row.provider.name),
 			width: row.width,
 			height: row.height,
 			splitDoublePage: row.splitDoublePage,

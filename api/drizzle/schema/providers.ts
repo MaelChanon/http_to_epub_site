@@ -16,6 +16,7 @@ export const providerName = pgEnum("provider_name", [
 	"MANGA_ORIGINS",
 	"SUSHISCAN_NET",
 	"ANIME_SAMA",
+	"WEEBCENTRAL",
 ]);
 
 export const mangaProviderStatus = pgEnum("manga_provider_status", [

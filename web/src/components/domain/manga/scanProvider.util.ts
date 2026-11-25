@@ -19,6 +19,7 @@ const PROVIDER_CATALOG_URL: Record<MangaProviderName, (tag: string) => string> =
 		MANGA_ORIGINS: (tag) => `https://mangas-origines.fr/oeuvre/${tag}/`,
 		ANIME_SAMA: (tag) =>
 			`https://anime-sama.to/catalogue/${animeSamaPath(tag)}/`,
+		WEEBCENTRAL: (tag) => `https://weebcentral.com/series/${tag}`,
 	};
 
 function animeSamaPath(tag: string) {
