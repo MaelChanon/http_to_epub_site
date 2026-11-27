@@ -1,9 +1,7 @@
 import type {
 	AniListSearchResult,
 	ChapterPages,
-	CreateEpubPayload,
 	Epub,
-	LoginPayload,
 	MagicLink,
 	Manga,
 	MangaEpubs,
@@ -16,7 +14,16 @@ import type {
 	ProviderMangaSummary,
 	User,
 } from "@workspace/api";
-import { type AniListId, Api } from "@workspace/api";
+import {
+	type AniListId,
+	Api,
+	CreateEpubPayload,
+	CreateInvitePayload,
+	CreateUserPayload,
+	LoginPayload,
+	ResetPasswordPayload,
+	UploadEpubCoverPayload,
+} from "@workspace/api";
 import { Effect, Layer } from "effect";
 import { FetchHttpClient } from "effect/http";
 import { HttpApiClient } from "effect/http-api";
@@ -65,7 +72,7 @@ function run<A, E>(call: Effect.Effect<A, E>): Promise<A> {
 }
 
 export function login(payload: LoginPayload): Promise<User> {
-	return run(client.auth.login({ payload }));
+	return run(client.auth.login({ payload: new LoginPayload(payload) }));
 }
 
 export function logout(): Promise<void> {
@@ -104,13 +111,21 @@ export function acceptInvite(
 	token: string,
 	values: { pseudo: string; email: string; password: string },
 ): Promise<User> {
-	return run(client.users.createUser({ payload: { ...values, token } }));
+	return run(
+		client.users.createUser({
+			payload: new CreateUserPayload({ ...values, token }),
+		}),
+	);
 }
 
 export function createInvite(
 	permissions: readonly Permission[],
 ): Promise<MagicLink> {
-	return run(client.users.createInvite({ payload: { permissions } }));
+	return run(
+		client.users.createInvite({
+			payload: new CreateInvitePayload({ permissions }),
+		}),
+	);
 }
 
 export function createPasswordReset(id: User["id"]): Promise<MagicLink> {
@@ -123,7 +138,10 @@ export function getPasswordReset(token: string): Promise<PasswordResetPreview> {
 
 export function resetPassword(token: string, password: string): Promise<void> {
 	return run(
-		client.auth.resetPassword({ params: { token }, payload: { password } }),
+		client.auth.resetPassword({
+			params: { token },
+			payload: new ResetPasswordPayload({ password }),
+		}),
 	);
 }
 
@@ -208,7 +226,13 @@ export function generateEpub(
 	payload: CreateEpubPayload,
 ): Promise<Epub> {
 	return run(
-		client.epub.createEpub({ params: { mangaId, provider }, payload }),
+		client.epub.createEpub({
+			params: { mangaId, provider },
+			payload: new CreateEpubPayload({
+				...payload,
+				cover: payload.cover && new UploadEpubCoverPayload(payload.cover),
+			}),
+		}),
 	);
 }
 
