@@ -2,7 +2,7 @@ import { effectTsResolver } from "@hookform/resolvers/effect-ts";
 import type { UploadEpubCoverPayload } from "@workspace/api";
 import { EpubCoverContentType } from "@workspace/api";
 import { Schema } from "effect";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { useForm } from "react-hook-form";
 import { IconBolt } from "@/components/icons";
 import { NumberField } from "@/components/ui/number-field";
@@ -71,6 +71,8 @@ interface GenerateEpubPanelProps {
 	totalChapters: number;
 	range: ChapterRange;
 	onRangeChange: (range: ChapterRange) => void;
+	provider: MangaProviderName | undefined;
+	onProviderChange: (provider: MangaProviderName) => void;
 }
 
 export function GenerateEpubPanel({
@@ -78,9 +80,10 @@ export function GenerateEpubPanel({
 	totalChapters,
 	range,
 	onRangeChange,
+	provider,
+	onProviderChange,
 }: GenerateEpubPanelProps) {
 	const { data: providers = [] } = useMangaProviders(manga.mangaId);
-	const [provider, setProvider] = useState<MangaProviderName>();
 	const [dimId, setDimId] = useState("kobo");
 	const [customW, setCustomW] = useState(800);
 	const [customH, setCustomH] = useState(1200);
@@ -122,13 +125,6 @@ export function GenerateEpubPanel({
 			setCoverError("Failed to upload cover");
 		}
 	}
-
-	useEffect(() => {
-		if (provider && providers.some((p) => p.provider === provider)) {
-			return;
-		}
-		setProvider(providers[0]?.provider);
-	}, [provider, providers]);
 
 	const activeProvider = providers.find((p) => p.provider === provider);
 	const providerChapterCount = activeProvider
@@ -206,7 +202,7 @@ export function GenerateEpubPanel({
 								<button
 									key={p.provider}
 									type="button"
-									onClick={() => setProvider(p.provider)}
+									onClick={() => onProviderChange(p.provider)}
 									className={`rounded-md border px-2.5 py-1.5 text-[12px] font-medium ${
 										provider === p.provider
 											? "border-(--brand) bg-(--brand-soft) text-(--ink)"

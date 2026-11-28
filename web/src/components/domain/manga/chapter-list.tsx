@@ -1,5 +1,5 @@
 import { Link } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import {
 	IconAlertTriangle,
 	IconChevronRight,
@@ -18,7 +18,11 @@ import {
 	DialogTitle,
 } from "@/components/ui/dialog";
 import { StatusBars } from "@/components/ui/status-bars";
-import type { Manga, MangaProviderChapters } from "@/lib/api";
+import type {
+	Manga,
+	MangaProviderChapters,
+	MangaProviderName,
+} from "@/lib/api";
 import { AddProviderDialog } from "./add-provider-dialog";
 import type { ChapterRange } from "./manga.util";
 import { formatEnumLabel, providerColor } from "./manga.util";
@@ -35,11 +39,17 @@ const PER_PAGE = 12;
 interface ChapterListProps {
 	manga: Manga;
 	range?: ChapterRange;
+	provider: MangaProviderName | undefined;
+	onProviderChange: (provider: MangaProviderName) => void;
 }
 
-export function ChapterList({ manga, range }: ChapterListProps) {
+export function ChapterList({
+	manga,
+	range,
+	provider: providerId,
+	onProviderChange,
+}: ChapterListProps) {
 	const { data: providers = [], isPending } = useMangaProviders(manga.mangaId);
-	const [activeProvider, setActiveProvider] = useState<string>();
 	const [order, setOrder] = useState<"desc" | "asc">("desc");
 	const [page, setPage] = useState(0);
 	const [addProviderOpen, setAddProviderOpen] = useState(false);
@@ -49,18 +59,8 @@ export function ChapterList({ manga, range }: ChapterListProps) {
 	const deleteMutation = useDeleteMangaProviderChapters(manga.mangaId);
 	const archiveMutation = useDownloadProviderArchive(manga.mangaId);
 
-	const providerId = activeProvider ?? providers[0]?.provider;
 	const activeProviderEntry = providers.find((p) => p.provider === providerId);
 	const chapters = activeProviderEntry?.chapters ?? [];
-
-	useEffect(() => {
-		if (
-			activeProvider &&
-			!providers.some((p) => p.provider === activeProvider)
-		) {
-			setActiveProvider(undefined);
-		}
-	}, [activeProvider, providers]);
 
 	const sorted = useMemo(() => {
 		const list = [...chapters];
@@ -139,7 +139,7 @@ export function ChapterList({ manga, range }: ChapterListProps) {
 													: undefined
 										}
 										onClick={() => {
-											setActiveProvider(provider.provider);
+											onProviderChange(provider.provider);
 											setPage(0);
 										}}
 										className={`flex items-center gap-2.5 px-4.5 py-3 text-[13px] font-medium ${

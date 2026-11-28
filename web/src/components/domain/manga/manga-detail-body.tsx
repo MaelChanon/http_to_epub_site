@@ -1,5 +1,6 @@
 import type { MangaWithEpub } from "@workspace/api";
 import { useMemo, useState } from "react";
+import type { MangaProviderName } from "@/lib/api";
 import { ChapterList } from "./chapter-list";
 import { GenerateEpubPanel } from "./generate-epub-panel";
 import type { ChapterRange } from "./manga.util";
@@ -13,6 +14,12 @@ import {
 export function MangaDetailBody({ manga }: { manga: MangaWithEpub }) {
 	useMangaProviderEvents(manga.mangaId);
 	const { data: providers = [] } = useMangaProviders(manga.mangaId);
+	// Shared by the chapter list and the generate panel, so the EPUB is built
+	// from the provider whose chapters are on screen.
+	const [selectedProvider, setSelectedProvider] = useState<MangaProviderName>();
+	const provider = providers.some((p) => p.provider === selectedProvider)
+		? selectedProvider
+		: providers[0]?.provider;
 	const totalChapters = useMemo(
 		() =>
 			providers.reduce(
@@ -37,13 +44,20 @@ export function MangaDetailBody({ manga }: { manga: MangaWithEpub }) {
 			<MangaHero manga={manga} />
 			<div className="grid grid-cols-1 gap-10 py-10 lg:grid-cols-[1fr_560px]">
 				<div className="flex flex-col gap-5">
-					<ChapterList manga={manga} range={range} />
+					<ChapterList
+						manga={manga}
+						range={range}
+						provider={provider}
+						onProviderChange={setSelectedProvider}
+					/>
 					<MangaEpubList epubs={manga.epubs} />
 				</div>
 				<div className="flex flex-col gap-5 self-start">
 					<GenerateEpubPanel
 						manga={manga}
 						totalChapters={totalChapters}
+						provider={provider}
+						onProviderChange={setSelectedProvider}
 						range={range}
 						onRangeChange={setRange}
 					/>
